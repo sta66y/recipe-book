@@ -1,6 +1,5 @@
 package com.example.recipeBook.entity
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
 import jakarta.persistence.ElementCollection
@@ -49,8 +48,8 @@ class Product(
     @Column(name = "carbohydrates", nullable = false)
     var carbohydrates: Double,
 
-    @Column(name = "ingredients", columnDefinition = "TEXT")
-    var ingredients: String? = null,
+    @Column(name = "composition", columnDefinition = "TEXT")
+    var composition: String? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "category", nullable = false, length = 50)
@@ -77,6 +76,9 @@ class Product(
     @Column(name = "updated_at")
     var updatedAt: LocalDateTime? = null
 ) {
+
+    // ==================== Enums ====================
+
     enum class Category(val displayName: String) {
         FROZEN("Замороженный"),
         MEAT("Мясной"),
@@ -86,8 +88,7 @@ class Product(
         GROATS("Крупы"),
         CANNED_FOOD("Консервы"),
         LIQUID("Жидкость"),
-        SWEETS("Сладости")
-        ;
+        SWEETS("Сладости");
 
         companion object {
             fun fromDisplayName(name: String) = entries.find { it.displayName == name }
@@ -97,8 +98,7 @@ class Product(
     enum class CookingRequirement(val displayName: String) {
         READY_TO_EAT("Готовый к употреблению"),
         SEMI_FINISHED("Полуфабрикат"),
-        REQUIRES_COOKING("Требует приготовления")
-        ;
+        REQUIRES_COOKING("Требует приготовления");
 
         companion object {
             fun fromDisplayName(name: String) = entries.find { it.displayName == name }
@@ -108,25 +108,27 @@ class Product(
     enum class ProductFlag(val displayName: String) {
         VEGAN("Веган"),
         GLUTEN_FREE("Без глютена"),
-        SUGAR_FREE("Без сахара")
-        ;
+        SUGAR_FREE("Без сахара");
 
         companion object {
             fun fromDisplayName(name: String) = entries.find { it.displayName == name }
         }
     }
 
+    // ==================== Фото (макс. 5) ====================
+
     fun addPhoto(photoUrl: String) {
-        if (photos.size < 5) {
-            photos.add(photoUrl)
-        } else {
-            throw IllegalStateException("Максимальное количество фотографий - 5")
+        if (photos.size >= 5) {
+            throw IllegalStateException("Максимальное количество фотографий — 5")
         }
+        photos.add(photoUrl)
     }
 
     fun removePhoto(photoUrl: String) {
         photos.remove(photoUrl)
     }
+
+    // ==================== Флаги ====================
 
     fun addFlag(flag: ProductFlag) {
         flags.add(flag)
@@ -138,7 +140,63 @@ class Product(
 
     fun hasFlag(flag: ProductFlag): Boolean = flags.contains(flag)
 
-    fun isVegan(): Boolean = flags.contains(ProductFlag.VEGAN)
-    fun isGlutenFree(): Boolean = flags.contains(ProductFlag.GLUTEN_FREE)
-    fun isSugarFree(): Boolean = flags.contains(ProductFlag.SUGAR_FREE)
+    fun isVegan(): Boolean = hasFlag(ProductFlag.VEGAN)
+    fun isGlutenFree(): Boolean = hasFlag(ProductFlag.GLUTEN_FREE)
+    fun isSugarFree(): Boolean = hasFlag(ProductFlag.SUGAR_FREE)
+
+    // ==================== Валидация ====================
+
+    /**
+     * Валидация: название >= 2 символа.
+     */
+    fun validateName() {
+        require(name.length >= 2) { "Название продукта должно содержать минимум 2 символа" }
+    }
+
+    /**
+     * Валидация: КБЖУ >= 0.
+     */
+    fun validateNutritionNonNegative() {
+        require(calories >= 0) { "Калорийность не может быть отрицательной" }
+        require(proteins >= 0) { "Белки не могут быть отрицательными" }
+        require(fats >= 0) { "Жиры не могут быть отрицательными" }
+        require(carbohydrates >= 0) { "Углеводы не могут быть отрицательными" }
+    }
+
+    /**
+     * Валидация: каждое значение БЖУ <= 100.
+     */
+    fun validateNutritionMax() {
+        require(proteins <= 100) { "Белки на 100г не могут превышать 100" }
+        require(fats <= 100) { "Жиры на 100г не могут превышать 100" }
+        require(carbohydrates <= 100) { "Углеводы на 100г не могут превышать 100" }
+    }
+
+    /**
+     * Валидация: сумма БЖУ на 100г <= 100.
+     */
+    fun validateNutritionSum() {
+        val sum = proteins + fats + carbohydrates
+        require(sum <= 100) {
+            "Сумма БЖУ на 100 грамм не может превышать 100 (текущая: %.2f)".format(sum)
+        }
+    }
+
+    /**
+     * Валидация: фото <= 5.
+     */
+    fun validatePhotos() {
+        require(photos.size <= 5) { "Максимальное количество фотографий — 5" }
+    }
+
+    /**
+     * Полная валидация сущности.
+     */
+    fun validate() {
+        validateName()
+        validateNutritionNonNegative()
+        validateNutritionMax()
+        validateNutritionSum()
+        validatePhotos()
+    }
 }

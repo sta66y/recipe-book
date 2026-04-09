@@ -83,6 +83,9 @@ class Dish(
     @Column(name = "updated_at")
     var updatedAt: LocalDateTime? = null
 ) {
+
+    // ==================== Enums ====================
+
     enum class Category(val displayName: String) {
         DESSERT("Десерт"),
         FIRST_COURSE("Первое"),
@@ -90,8 +93,7 @@ class Dish(
         BEVERAGE("Напиток"),
         SALAD("Салат"),
         SOUP("Суп"),
-        SNACK("Перекус")
-        ;
+        SNACK("Перекус");
 
         companion object {
             fun fromDisplayName(name: String) = entries.find { it.displayName == name }
@@ -101,15 +103,65 @@ class Dish(
     enum class DishFlag(val displayName: String) {
         VEGAN("Веган"),
         GLUTEN_FREE("Без глютена"),
-        SUGAR_FREE("Без сахара")
-        ;
+        SUGAR_FREE("Без сахара");
 
         companion object {
             fun fromDisplayName(name: String) = entries.find { it.displayName == name }
         }
     }
 
+    // ==================== Макросы (п. 2.3) ====================
+
+    companion object {
+        private val MACRO_MAP = linkedMapOf(
+            "!десерт" to Category.DESSERT,
+            "!первое" to Category.FIRST_COURSE,
+            "!второе" to Category.SECOND_COURSE,
+            "!напиток" to Category.BEVERAGE,
+            "!салат" to Category.SALAD,
+            "!суп" to Category.SOUP,
+            "!перекус" to Category.SNACK
+        )
+
+        /**
+         * Парсит макросы из названия блюда.
+         * Возвращает пару: (очищенное название, категория из первого найденного макроса или null).
+         * Все макросы удаляются из названия, но применяется только первый.
+         */
+        fun parseMacro(rawName: String): Pair<String, Category?> {
+            var firstCategory: Category? = null
+
+            var cleanName = rawName
+            for ((macro, category) in MACRO_MAP) {
+                if (cleanName.contains(macro, ignoreCase = true)) {
+                    if (firstCategory == null) {
+                        firstCategory = category
+                    }
+                    cleanName = cleanName.replace(macro, "", ignoreCase = true)
+                }
+            }
+
+            return cleanName.trim() to firstCategory
+        }
+    }
+
+    // ==================== Фото (макс. 5) ====================
+
+    fun addPhoto(photoUrl: String) {
+        if (photos.size >= 5) {
+            throw IllegalStateException("Максимальное количество фотографий — 5")
+        }
+        photos.add(photoUrl)
+    }
+
+    fun removePhoto(photoUrl: String) {
+        photos.remove(photoUrl)
+    }
+
+    // ==================== Ингредиенты ====================
+
     fun addIngredient(product: Product, quantity: Double) {
+        require(quantity > 0) { "Количество продукта должно быть больше 0" }
         val ingredient = DishIngredient(
             dish = this,
             product = product,
@@ -117,88 +169,61 @@ class Dish(
         )
         ingredients.add(ingredient)
         recalculateNutrition()
+        recalculateFlags()
     }
 
     fun removeIngredient(productId: Long) {
         ingredients.removeAll { it.product.id == productId }
         recalculateNutrition()
+        recalculateFlags()
     }
 
     fun updateIngredientQuantity(productId: Long, newQuantity: Double) {
+        require(newQuantity > 0) { "Количество продукта должно быть больше 0" }
         ingredients.find { it.product.id == productId }?.let {
             it.quantity = newQuantity
             recalculateNutrition()
+            recalculateFlags()
         }
     }
 
+    // ==================== Расчёт КБЖУ (п. 2.2) ====================
+
+    /**
+     * Автоматический расчёт КБЖУ на порцию.
+     * Формула: Σ (значение продукта на 100г × количество продукта в порции / 100)
+     */
     fun recalculateNutrition() {
         var totalCalories = 0.0
         var totalProteins = 0.0
         var totalFats = 0.0
         var totalCarbohydrates = 0.0
-        var totalWeight = 0.0
 
         ingredients.forEach { ingredient ->
             val product = ingredient.product
-            val qty = ingredient.quantity
-            val factor = qty / 100.0
+            val factor = ingredient.quantity / 100.0
 
             totalCalories += product.calories * factor
             totalProteins += product.proteins * factor
             totalFats += product.fats * factor
             totalCarbohydrates += product.carbohydrates * factor
-            totalWeight += qty
         }
 
-        if (totalWeight > 0 && servingSize > 0) {
-            val portionRatio = servingSize / totalWeight
-            this.calories = totalCalories * portionRatio
-            this.proteins = totalProteins * portionRatio
-            this.fats = totalFats * portionRatio
-            this.carbohydrates = totalCarbohydrates * portionRatio
-        } else {
-            this.calories = totalCalories
-            this.proteins = totalProteins
-            this.fats = totalFats
-            this.carbohydrates = totalCarbohydrates
-        }
+        this.calories = totalCalories
+        this.proteins = totalProteins
+        this.fats = totalFats
+        this.carbohydrates = totalCarbohydrates
     }
 
-
-    fun autoDetectFlags() {
-        val newFlags = mutableSetOf<DishFlag>()
-
-        var isVegan = true
-        var isGlutenFree = true
-        var isSugarFree = true
-
-        ingredients.forEach { ingredient ->
-            val product = ingredient.product
-
-            if (product.category == Product.Category.MEAT ||
-                product.category == Product.Category.FROZEN && product.name.contains("мясо", ignoreCase = true)) {
-                isVegan = false
-            }
-
-            if (product.category == Product.Category.GROATS &&
-                !product.flags.contains(Product.ProductFlag.GLUTEN_FREE)) {
-                isGlutenFree = false
-            }
-
-            if (product.name.contains("сахар", ignoreCase = true) ||
-                product.category == Product.Category.SWEETS) {
-                isSugarFree = false
-            }
-        }
-
-        if (isVegan) newFlags.add(DishFlag.VEGAN)
-        if (isGlutenFree) newFlags.add(DishFlag.GLUTEN_FREE)
-        if (isSugarFree) newFlags.add(DishFlag.SUGAR_FREE)
-
-        this.flags = newFlags
-    }
-
+    /**
+     * Ручная корректировка КБЖУ пользователем.
+     */
     fun adjustNutrition(calories: Double, proteins: Double, fats: Double, carbohydrates: Double) {
+        require(calories >= 0) { "Калорийность не может быть отрицательной" }
+        require(proteins >= 0) { "Белки не могут быть отрицательными" }
+        require(fats >= 0) { "Жиры не могут быть отрицательными" }
+        require(carbohydrates >= 0) { "Углеводы не могут быть отрицательными" }
+
         this.calories = calories
         this.proteins = proteins
         this.fats = fats
@@ -207,5 +232,107 @@ class Dish(
 
     fun resetToAutoCalculated() {
         recalculateNutrition()
+    }
+
+    // ==================== Флаги (п. 2.4) ====================
+
+    /**
+     * Определяет набор доступных флагов на основе состава.
+     * Флаг доступен только если ВСЕ продукты в составе имеют соответствующий флаг.
+     */
+    fun getAvailableFlags(): Set<DishFlag> {
+        if (ingredients.isEmpty()) {
+            return emptySet()
+        }
+
+        val allProducts = ingredients.map { it.product }
+        val available = mutableSetOf<DishFlag>()
+
+        if (allProducts.all { it.hasFlag(Product.ProductFlag.VEGAN) }) {
+            available.add(DishFlag.VEGAN)
+        }
+        if (allProducts.all { it.hasFlag(Product.ProductFlag.GLUTEN_FREE) }) {
+            available.add(DishFlag.GLUTEN_FREE)
+        }
+        if (allProducts.all { it.hasFlag(Product.ProductFlag.SUGAR_FREE) }) {
+            available.add(DishFlag.SUGAR_FREE)
+        }
+
+        return available
+    }
+
+    /**
+     * Пересчитывает флаги: снимает те, которые более не доступны по составу.
+     */
+    fun recalculateFlags() {
+        val available = getAvailableFlags()
+        flags.retainAll(available)
+    }
+
+    // ==================== Валидация ====================
+
+    /**
+     * Валидация: название >= 2 символа.
+     */
+    fun validateName() {
+        require(name.length >= 2) { "Название блюда должно содержать минимум 2 символа" }
+    }
+
+    /**
+     * Валидация: servingSize > 0.
+     */
+    fun validateServingSize() {
+        require(servingSize > 0) { "Размер порции должен быть больше 0" }
+    }
+
+    /**
+     * Валидация: минимум 1 ингредиент.
+     */
+    fun validateIngredients() {
+        require(ingredients.isNotEmpty()) { "Блюдо должно содержать хотя бы 1 ингредиент" }
+    }
+
+    /**
+     * Валидация: КБЖУ >= 0.
+     */
+    fun validateNutritionNonNegative() {
+        require(calories >= 0) { "Калорийность не может быть отрицательной" }
+        require(proteins >= 0) { "Белки не могут быть отрицательными" }
+        require(fats >= 0) { "Жиры не могут быть отрицательными" }
+        require(carbohydrates >= 0) { "Углеводы не могут быть отрицательными" }
+    }
+
+    /**
+     * Валидация: сумма БЖУ на 100г порции <= 100.
+     */
+    fun validateNutritionPer100g() {
+        if (servingSize > 0) {
+            val proteinsPer100 = proteins * 100.0 / servingSize
+            val fatsPer100 = fats * 100.0 / servingSize
+            val carbsPer100 = carbohydrates * 100.0 / servingSize
+            val sum = proteinsPer100 + fatsPer100 + carbsPer100
+            require(sum <= 100) {
+                "Сумма БЖУ на 100 грамм порции не может превышать 100 (текущая: %.2f)".format(sum)
+            }
+        }
+    }
+
+    /**
+     * Валидация: фото <= 5.
+     */
+    fun validatePhotos() {
+        require(photos.size <= 5) { "Максимальное количество фотографий — 5" }
+    }
+
+    /**
+     * Полная валидация сущности.
+     */
+    fun validate() {
+        validateName()
+        validateServingSize()
+        validateIngredients()
+        validateNutritionNonNegative()
+        validateNutritionPer100g()
+        validatePhotos()
     }
 }
