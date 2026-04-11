@@ -26,7 +26,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
@@ -48,7 +48,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
@@ -69,7 +69,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
@@ -90,7 +90,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
@@ -111,7 +111,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
@@ -132,7 +132,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
     @Query(
         """
         SELECT DISTINCT p FROM Product p
-        WHERE (:name IS NULL OR p.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(p.name) LIKE %:name%)
           AND (:category IS NULL OR p.category = :category)
           AND (:cookingRequirement IS NULL OR p.cookingRequirement = :cookingRequirement)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))

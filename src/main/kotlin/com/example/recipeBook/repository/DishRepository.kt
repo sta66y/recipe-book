@@ -24,7 +24,7 @@ interface DishRepository : JpaRepository<Dish, Long> {
         """
         SELECT DISTINCT d FROM Dish d
         LEFT JOIN d.flags f
-        WHERE (:name IS NULL OR d.name LIKE %:name%)
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
           AND (:category IS NULL OR d.category = :category)
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
           AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))

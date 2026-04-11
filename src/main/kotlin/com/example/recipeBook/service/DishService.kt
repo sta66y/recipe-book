@@ -115,7 +115,7 @@ class DishService(
         }
 
         val dishes = dishRepository.findWithFilters(
-            name = name,
+            name = name?.lowercase(),
             category = categoryEnum,
             vegan = vegan ?: false,
             glutenFree = glutenFree ?: false,

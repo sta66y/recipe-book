@@ -86,6 +86,7 @@ class ProductService(
         sugarFree: Boolean?,
         sortBy: String?
     ): List<ProductResponse> {
+        val lowercaseName = name?.lowercase()
         val categoryEnum = category?.let {
             Product.Category.fromDisplayName(it)
                 ?: throw IllegalArgumentException("Неверная категория продукта: $it")
@@ -97,27 +98,27 @@ class ProductService(
 
         val products = when (sortBy?.lowercase()) {
             "name" -> productRepository.findWithFiltersSortByName(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
             "calories" -> productRepository.findWithFiltersSortByCalories(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
             "proteins" -> productRepository.findWithFiltersSortByProteins(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
             "fats" -> productRepository.findWithFiltersSortByFats(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
             "carbohydrates" -> productRepository.findWithFiltersSortByCarbohydrates(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
             else -> productRepository.findWithFilters(
-                name, categoryEnum, cookingReqEnum,
+                lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
             )
         }
