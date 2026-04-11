@@ -662,10 +662,10 @@ async function saveDish() {
         photos: dishPhotos,
         servingSize: parseFloat(document.getElementById('dish-serving-size').value),
         category: document.getElementById('dish-category').value || null,
-        calories: parseFloat(document.getElementById('dish-calories').value) || null,
-        proteins: parseFloat(document.getElementById('dish-proteins').value) || null,
-        fats: parseFloat(document.getElementById('dish-fats').value) || null,
-        carbohydrates: parseFloat(document.getElementById('dish-carbs').value) || null,
+        calories: parseFloat(document.getElementById('dish-calories').value),
+        proteins: parseFloat(document.getElementById('dish-proteins').value),
+        fats: parseFloat(document.getElementById('dish-fats').value),
+        carbohydrates: parseFloat(document.getElementById('dish-carbs').value),
         ingredients: dishIngredients.map(ing => ({
             productId: ing.productId,
             quantity: ing.quantity
