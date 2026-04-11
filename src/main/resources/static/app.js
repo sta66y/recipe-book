@@ -149,7 +149,12 @@ function openProductModal(productId = null) {
     currentProductId = productId;
     productPhotos = [];
     
-    document.getElementById('product-form').reset();
+    // Сбрасываем форму только при создании нового продукта
+    if (!productId) {
+        document.getElementById('product-form').reset();
+        document.getElementById('product-id').value = '';
+    }
+    
     document.getElementById('product-photos-container').innerHTML = '';
     document.getElementById('product-macros-sum').className = 'macros-sum';
     document.getElementById('product-macros-sum').textContent = '';
@@ -172,8 +177,12 @@ function closeProductModal() {
 async function loadProductForEdit(id) {
     try {
         const response = await fetch(`${API_BASE}/products/${id}`);
+        if (!response.ok) {
+            throw new Error('Продукт не найден');
+        }
         const product = await response.json();
         
+        // Заполняем форму
         document.getElementById('product-id').value = product.id;
         document.getElementById('product-name').value = product.name;
         document.getElementById('product-calories').value = product.calories;
@@ -184,7 +193,7 @@ async function loadProductForEdit(id) {
         document.getElementById('product-category').value = product.category;
         document.getElementById('product-cooking').value = product.cookingRequirement;
         
-        productPhotos = product.photos || [];
+        productPhotos = [...product.photos];
         renderProductPhotos();
         
         document.getElementById('product-vegan').checked = product.flags.includes('Веган');
@@ -193,7 +202,8 @@ async function loadProductForEdit(id) {
         
         updateMacrosSum();
     } catch (error) {
-        showToast('Ошибка загрузки продукта', 'error');
+        showToast('Ошибка загрузки продукта: ' + error.message, 'error');
+        closeProductModal();
     }
 }
 
@@ -381,15 +391,22 @@ async function showProductDetail(id) {
 
 function closeProductDetailModal() {
     document.getElementById('product-detail-modal').classList.remove('active');
-    currentProductId = null;
 }
 
 function editCurrentProduct() {
+    const idToEdit = currentProductId;
     closeProductDetailModal();
-    openProductModal(currentProductId);
+    currentProductId = null;
+    openProductModal(idToEdit);
 }
 
 async function deleteCurrentProduct() {
+    if (!currentProductId) return;
+    
+    if (!confirm('Вы уверены, что хотите удалить этот продукт?')) {
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/products/${currentProductId}`, {
             method: 'DELETE'
@@ -407,6 +424,7 @@ async function deleteCurrentProduct() {
         
         showToast('Продукт удалён', 'success');
         closeProductDetailModal();
+        currentProductId = null;
         loadProducts();
     } catch (error) {
         showToast(error.message, 'error');
@@ -538,12 +556,17 @@ function initDishFilters() {
 
 // ==================== Dish Modal ====================
 
-async function openDishModal(dishId = null) {
+function openDishModal(dishId = null) {
     currentDishId = dishId;
     dishPhotos = [];
     dishIngredients = [];
     
-    document.getElementById('dish-form').reset();
+    // Сбрасываем форму только при создании нового блюда
+    if (!dishId) {
+        document.getElementById('dish-form').reset();
+        document.getElementById('dish-id').value = '';
+    }
+    
     document.getElementById('dish-photos-container').innerHTML = '';
     document.getElementById('dish-ingredients-container').innerHTML = '';
     document.getElementById('dish-flags-container').innerHTML = `
@@ -563,7 +586,7 @@ async function openDishModal(dishId = null) {
     
     if (dishId) {
         document.getElementById('dish-modal-title').textContent = 'Редактирование блюда';
-        await loadDishForEdit(dishId);
+        loadDishForEdit(dishId);
     } else {
         document.getElementById('dish-modal-title').textContent = 'Новое блюдо';
     }
@@ -579,8 +602,12 @@ function closeDishModal() {
 async function loadDishForEdit(id) {
     try {
         const response = await fetch(`${API_BASE}/dishes/${id}`);
+        if (!response.ok) {
+            throw new Error('Блюдо не найдено');
+        }
         const dish = await response.json();
         
+        // Заполняем форму
         document.getElementById('dish-id').value = dish.id;
         document.getElementById('dish-name').value = dish.name;
         document.getElementById('dish-serving-size').value = dish.servingSize;
@@ -590,7 +617,7 @@ async function loadDishForEdit(id) {
         document.getElementById('dish-fats').value = dish.fats;
         document.getElementById('dish-carbs').value = dish.carbohydrates;
         
-        dishPhotos = dish.photos || [];
+        dishPhotos = [...dish.photos];
         renderDishPhotos();
         
         dishIngredients = dish.ingredients.map(ing => ({
@@ -600,15 +627,14 @@ async function loadDishForEdit(id) {
         }));
         renderDishIngredients();
         
-        // Update available flags
         await checkAvailableFlags();
         
-        // Set flags
         document.getElementById('dish-vegan').checked = dish.flags.includes('Веган');
         document.getElementById('dish-gluten-free').checked = dish.flags.includes('Без глютена');
         document.getElementById('dish-sugar-free').checked = dish.flags.includes('Без сахара');
     } catch (error) {
-        showToast('Ошибка загрузки блюда', 'error');
+        showToast('Ошибка загрузки блюда: ' + error.message, 'error');
+        closeDishModal();
     }
 }
 
@@ -616,10 +642,6 @@ function initDishForm() {
     document.getElementById('dish-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveDish();
-    });
-    
-    document.getElementById('dish-serving-size').addEventListener('input', () => {
-        // Could recalculate per-100g values if needed
     });
 }
 
@@ -640,9 +662,20 @@ async function saveDish() {
         flags: []
     };
     
-    if (document.getElementById('dish-vegan')?.checked) data.flags.push('Веган');
-    if (document.getElementById('dish-gluten-free')?.checked) data.flags.push('Без глютена');
-    if (document.getElementById('dish-sugar-free')?.checked) data.flags.push('Без сахара');
+    // Добавляем флаги только если они checked И не disabled
+    const veganCheckbox = document.getElementById('dish-vegan');
+    const glutenFreeCheckbox = document.getElementById('dish-gluten-free');
+    const sugarFreeCheckbox = document.getElementById('dish-sugar-free');
+    
+    if (veganCheckbox?.checked && !veganCheckbox?.disabled) {
+        data.flags.push('Веган');
+    }
+    if (glutenFreeCheckbox?.checked && !glutenFreeCheckbox?.disabled) {
+        data.flags.push('Без глютена');
+    }
+    if (sugarFreeCheckbox?.checked && !sugarFreeCheckbox?.disabled) {
+        data.flags.push('Без сахара');
+    }
     
     try {
         const url = currentDishId 
@@ -726,7 +759,7 @@ function closeIngredientModal() {
     document.getElementById('ingredient-modal').classList.remove('active');
 }
 
-function addIngredientToDish() {
+async function addIngredientToDish() {
     const productId = parseInt(document.getElementById('ingredient-product-select').value);
     const productName = document.getElementById('ingredient-product-select').options[
         document.getElementById('ingredient-product-select').selectedIndex
@@ -747,7 +780,7 @@ function addIngredientToDish() {
     
     dishIngredients.push({ productId, productName, quantity });
     renderDishIngredients();
-    checkAvailableFlags();
+    await checkAvailableFlags();
     closeIngredientModal();
 }
 
@@ -770,10 +803,10 @@ function renderDishIngredients() {
     `).join('');
 }
 
-function removeIngredient(index) {
+async function removeIngredient(index) {
     dishIngredients.splice(index, 1);
     renderDishIngredients();
-    checkAvailableFlags();
+    await checkAvailableFlags();
 }
 
 async function checkAvailableFlags() {
@@ -804,6 +837,11 @@ async function checkAvailableFlags() {
         
         const availableFlags = await response.json();
         
+        // Сохраняем текущее состояние чекбоксов
+        const currentVegan = document.getElementById('dish-vegan')?.checked || false;
+        const currentGlutenFree = document.getElementById('dish-gluten-free')?.checked || false;
+        const currentSugarFree = document.getElementById('dish-sugar-free')?.checked || false;
+        
         document.getElementById('dish-flags-container').innerHTML = `
             <label class="checkbox-label ${availableFlags.includes('Веган') ? '' : 'disabled'}">
                 <input type="checkbox" id="dish-vegan" ${availableFlags.includes('Веган') ? '' : 'disabled'}>
@@ -818,6 +856,17 @@ async function checkAvailableFlags() {
                 <span>🍬 Без сахара</span>
             </label>
         `;
+        
+        // Восстанавливаем состояние только если флаг доступен
+        if (availableFlags.includes('Веган')) {
+            document.getElementById('dish-vegan').checked = currentVegan;
+        }
+        if (availableFlags.includes('Без глютена')) {
+            document.getElementById('dish-gluten-free').checked = currentGlutenFree;
+        }
+        if (availableFlags.includes('Без сахара')) {
+            document.getElementById('dish-sugar-free').checked = currentSugarFree;
+        }
     } catch (error) {
         console.error('Error checking flags:', error);
     }
@@ -929,15 +978,22 @@ async function showDishDetail(id) {
 
 function closeDishDetailModal() {
     document.getElementById('dish-detail-modal').classList.remove('active');
-    currentDishId = null;
 }
 
 function editCurrentDish() {
+    const idToEdit = currentDishId;
     closeDishDetailModal();
-    openDishModal(currentDishId);
+    currentDishId = null;
+    openDishModal(idToEdit);
 }
 
 async function deleteCurrentDish() {
+    if (!currentDishId) return;
+    
+    if (!confirm('Вы уверены, что хотите удалить это блюдо?')) {
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/dishes/${currentDishId}`, {
             method: 'DELETE'
@@ -949,6 +1005,7 @@ async function deleteCurrentDish() {
         
         showToast('Блюдо удалено', 'success');
         closeDishDetailModal();
+        currentDishId = null;
         loadDishes();
     } catch (error) {
         showToast(error.message, 'error');
