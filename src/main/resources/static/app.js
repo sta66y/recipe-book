@@ -7,6 +7,7 @@ let currentDishId = null;
 let dishPhotos = [];
 let productPhotos = [];
 let dishIngredients = [];
+let productsCache = []; // Кэш продуктов для расчёта КБЖУ
 
 // ==================== Initialization ====================
 
@@ -627,6 +628,11 @@ async function loadDishForEdit(id) {
         }));
         renderDishIngredients();
         
+        // Загружаем продукты в кэш и вызываем расчёт КБЖУ
+        const productsResponse = await fetch(`${API_BASE}/products`);
+        productsCache = await productsResponse.json();
+        calculateDishNutrition();
+        
         await checkAvailableFlags();
         
         document.getElementById('dish-vegan').checked = dish.flags.includes('Веган');
@@ -642,6 +648,11 @@ function initDishForm() {
     document.getElementById('dish-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveDish();
+    });
+    
+    // Пересчёт БЖУ на 100г при изменении размера порции
+    document.getElementById('dish-serving-size').addEventListener('input', () => {
+        updateNutritionPer100gHint();
     });
 }
 
@@ -741,10 +752,10 @@ function removeDishPhoto(index) {
 async function openIngredientModal() {
     try {
         const response = await fetch(`${API_BASE}/products`);
-        const products = await response.json();
+        productsCache = await response.json();
         
         const select = document.getElementById('ingredient-product-select');
-        select.innerHTML = products.map(p => 
+        select.innerHTML = productsCache.map(p => 
             `<option value="${p.id}">${escapeHtml(p.name)} (${p.calories} ккал/100г)</option>`
         ).join('');
         
@@ -780,6 +791,14 @@ async function addIngredientToDish() {
     
     dishIngredients.push({ productId, productName, quantity });
     renderDishIngredients();
+    
+    // Загружаем продукты если кэш пуст, затем расчёт КБЖУ
+    if (productsCache.length === 0) {
+        await loadProductsForCalculation();
+    }
+    
+    // Выполняем расчёт и обновляем UI
+    calculateDishNutrition();
     await checkAvailableFlags();
     closeIngredientModal();
 }
@@ -806,6 +825,7 @@ function renderDishIngredients() {
 async function removeIngredient(index) {
     dishIngredients.splice(index, 1);
     renderDishIngredients();
+    calculateDishNutrition(); // Авто-расчёт КБЖУ
     await checkAvailableFlags();
 }
 
@@ -869,6 +889,105 @@ async function checkAvailableFlags() {
         }
     } catch (error) {
         console.error('Error checking flags:', error);
+    }
+}
+
+// ==================== Расчёт КБЖУ блюда ====================
+
+/**
+ * Загрузка продуктов для расчёта КБЖУ (если кэш пуст).
+ */
+async function loadProductsForCalculation() {
+    try {
+        const response = await fetch(`${API_BASE}/products`);
+        productsCache = await response.json();
+    } catch (error) {
+        console.error('Error loading products for calculation:', error);
+    }
+}
+
+/**
+ * Автоматический расчёт КБЖУ блюда на основе состава.
+ * 
+ * Формула (п. 2.2 требований):
+ * Калорийность порции = Σ (калорийность продукта на 100 г × количество продукта в порции / 100)
+ * 
+ * Размер порции учитывается при расчёте БЖУ на 100г порции (для валидации).
+ */
+function calculateDishNutrition() {
+    const caloriesField = document.getElementById('dish-calories');
+    const proteinsField = document.getElementById('dish-proteins');
+    const fatsField = document.getElementById('dish-fats');
+    const carbsField = document.getElementById('dish-carbs');
+    const servingSizeField = document.getElementById('dish-serving-size');
+
+    if (dishIngredients.length === 0) {
+        caloriesField.value = '';
+        proteinsField.value = '';
+        fatsField.value = '';
+        carbsField.value = '';
+        return;
+    }
+
+    // Если кэш продуктов пуст, загружаем его
+    if (productsCache.length === 0) {
+        loadProductsForCalculation().then(() => {
+            calculateDishNutrition();
+        });
+        return;
+    }
+
+    let totalCalories = 0;
+    let totalProteins = 0;
+    let totalFats = 0;
+    let totalCarbs = 0;
+
+    dishIngredients.forEach(ing => {
+        const product = productsCache.find(p => p.id === ing.productId);
+        if (product) {
+            const factor = ing.quantity / 100;
+            totalCalories += product.calories * factor;
+            totalProteins += product.proteins * factor;
+            totalFats += product.fats * factor;
+            totalCarbs += product.carbohydrates * factor;
+        }
+    });
+
+    // Заполняем поля формы рассчитанными значениями
+    caloriesField.value = totalCalories.toFixed(1);
+    proteinsField.value = totalProteins.toFixed(1);
+    fatsField.value = totalFats.toFixed(1);
+    carbsField.value = totalCarbs.toFixed(1);
+    
+    // Обновляем подсказку с БЖУ на 100г порции
+    updateNutritionPer100gHint();
+}
+
+/**
+ * Обновляет подсказку с расчётом БЖУ на 100г порции.
+ */
+function updateNutritionPer100gHint() {
+    const servingSize = parseFloat(document.getElementById('dish-serving-size').value) || 0;
+    const calories = parseFloat(document.getElementById('dish-calories').value) || 0;
+    const proteins = parseFloat(document.getElementById('dish-proteins').value) || 0;
+    const fats = parseFloat(document.getElementById('dish-fats').value) || 0;
+    const carbs = parseFloat(document.getElementById('dish-carbs').value) || 0;
+    
+    const hintElement = document.getElementById('nutrition-per-100g-hint');
+    
+    if (servingSize > 0 && dishIngredients.length > 0) {
+        const factor = 100 / servingSize;
+        const proteinsPer100 = proteins * factor;
+        const fatsPer100 = fats * factor;
+        const carbsPer100 = carbs * factor;
+        const sumPer100 = proteinsPer100 + fatsPer100 + carbsPer100;
+        
+        const isValid = sumPer100 <= 100;
+        hintElement.textContent = `БЖУ на 100г порции: Б=${proteinsPer100.toFixed(1)}г, Ж=${fatsPer100.toFixed(1)}г, У=${carbsPer100.toFixed(1)}г (сумма: ${sumPer100.toFixed(1)}г)`;
+        hintElement.className = `form-hint ${isValid ? 'valid' : 'invalid'}`;
+    } else {
+        hintElement.textContent = '';
+        hintElement.className = 'form-hint';
     }
 }
 
