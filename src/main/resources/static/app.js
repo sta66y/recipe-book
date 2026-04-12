@@ -276,6 +276,29 @@ function addProductPhoto() {
     input.value = '';
 }
 
+function addProductPhotoFile() {
+    const input = document.getElementById('product-photo-file');
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    if (productPhotos.length >= 5) {
+        showToast('Максимум 5 фотографий', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        productPhotos.push(e.target.result); // base64 data URL
+        renderProductPhotos();
+        input.value = ''; // reset input
+    };
+    reader.onerror = function() {
+        showToast('Ошибка чтения файла', 'error');
+    };
+    reader.readAsDataURL(file);
+}
+
 function renderProductPhotos() {
     const container = document.getElementById('product-photos-container');
     container.innerHTML = productPhotos.map((url, index) => `
@@ -745,6 +768,29 @@ function renderDishPhotos() {
 function removeDishPhoto(index) {
     dishPhotos.splice(index, 1);
     renderDishPhotos();
+}
+
+function addDishPhotoFile() {
+    const input = document.getElementById('dish-photo-file');
+    const file = input.files[0];
+    
+    if (!file) return;
+    
+    if (dishPhotos.length >= 5) {
+        showToast('Максимум 5 фотографий', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        dishPhotos.push(e.target.result); // base64 data URL
+        renderDishPhotos();
+        input.value = ''; // reset input
+    };
+    reader.onerror = function() {
+        showToast('Ошибка чтения файла', 'error');
+    };
+    reader.readAsDataURL(file);
 }
 
 // ==================== Ingredients ====================

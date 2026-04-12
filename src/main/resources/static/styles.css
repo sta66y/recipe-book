@@ -475,10 +475,15 @@ body {
     display: flex;
     gap: 8px;
     margin-top: 8px;
+    align-items: center;
 }
 
-.photo-input-row input {
+.photo-input-row input[type="url"] {
     flex: 1;
+}
+
+.photo-input-row input[type="file"] {
+    display: none;
 }
 
 .photo-input-row button {

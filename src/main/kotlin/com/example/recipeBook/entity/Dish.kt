@@ -36,7 +36,7 @@ class Dish(
         name = "dish_photos",
         joinColumns = [JoinColumn(name = "dish_id")]
     )
-    @Column(name = "photo_url")
+    @Column(name = "photo_url", columnDefinition = "TEXT")
     var photos: MutableList<String> = mutableListOf(),
 
     @Column(name = "calories", nullable = false)

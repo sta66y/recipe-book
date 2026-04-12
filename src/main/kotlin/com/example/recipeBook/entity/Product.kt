@@ -33,7 +33,7 @@ class Product(
         name = "product_photos",
         joinColumns = [JoinColumn(name = "product_id")]
     )
-    @Column(name = "photo_url", length = 500)
+    @Column(name = "photo_url", columnDefinition = "TEXT")
     var photos: MutableList<String> = mutableListOf(),
 
     @Column(name = "calories", nullable = false)
