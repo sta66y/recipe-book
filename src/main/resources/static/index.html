@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Книга рецептов</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="app-title">🍳 Книга рецептов</h1>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="products">Продукты</button>
+                <button class="nav-tab" data-tab="dishes">Блюда</button>
+            </nav>
+        </header>
+
+        <!-- Products Tab -->
+        <main class="tab-content active" id="products-tab">
+            <div class="toolbar">
+                <div class="search-bar">
+                    <input type="text" id="product-search" placeholder="🔍 Поиск продукта...">
+                </div>
+                <button class="btn-primary" onclick="openProductModal()">+ Продукт</button>
+            </div>
+
+            <div class="filters-section">
+                <select id="product-category-filter" class="filter-select">
+                    <option value="">Все категории</option>
+                    <option value="Замороженный">Замороженный</option>
+                    <option value="Мясной">Мясной</option>
+                    <option value="Овощи">Овощи</option>
+                    <option value="Зелень">Зелень</option>
+                    <option value="Специи">Специи</option>
+                    <option value="Крупы">Крупы</option>
+                    <option value="Консервы">Консервы</option>
+                    <option value="Жидкость">Жидкость</option>
+                    <option value="Сладости">Сладости</option>
+                </select>
+                <select id="product-cooking-filter" class="filter-select">
+                    <option value="">Любая готовность</option>
+                    <option value="Готовый к употреблению">Готовый к употреблению</option>
+                    <option value="Полуфабрикат">Полуфабрикат</option>
+                    <option value="Требует приготовления">Требует приготовления</option>
+                </select>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="product-vegan-filter">
+                    <span>🌱 Веган</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="product-gluten-free-filter">
+                    <span>🌾 Без глютена</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="product-sugar-free-filter">
+                    <span>🍬 Без сахара</span>
+                </label>
+                <select id="product-sort" class="filter-select">
+                    <option value="">По умолчанию</option>
+                    <option value="name">По названию</option>
+                    <option value="calories">По калорийности</option>
+                    <option value="proteins">По белкам</option>
+                    <option value="fats">По жирам</option>
+                    <option value="carbohydrates">По углеводам</option>
+                </select>
+            </div>
+
+            <div id="products-list" class="cards-list"></div>
+        </main>
+
+        <!-- Dishes Tab -->
+        <main class="tab-content" id="dishes-tab">
+            <div class="toolbar">
+                <div class="search-bar">
+                    <input type="text" id="dish-search" placeholder="🔍 Поиск блюда...">
+                </div>
+                <button class="btn-primary" onclick="openDishModal()">+ Блюдо</button>
+            </div>
+
+            <div class="filters-section">
+                <select id="dish-category-filter" class="filter-select">
+                    <option value="">Все категории</option>
+                    <option value="Десерт">Десерт</option>
+                    <option value="Первое">Первое</option>
+                    <option value="Второе">Второе</option>
+                    <option value="Напиток">Напиток</option>
+                    <option value="Салат">Салат</option>
+                    <option value="Суп">Суп</option>
+                    <option value="Перекус">Перекус</option>
+                </select>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="dish-vegan-filter">
+                    <span>🌱 Веган</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="dish-gluten-free-filter">
+                    <span>🌾 Без глютена</span>
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="dish-sugar-free-filter">
+                    <span>🍬 Без сахара</span>
+                </label>
+            </div>
+
+            <div id="dishes-list" class="cards-list"></div>
+        </main>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="product-modal-title">Новый продукт</h2>
+                <button class="modal-close" onclick="closeProductModal()">✕</button>
+            </div>
+            <form id="product-form" class="modal-form">
+                <input type="hidden" id="product-id">
+                
+                <div class="form-group">
+                    <label for="product-name">Название *</label>
+                    <input type="text" id="product-name" required minlength="2">
+                </div>
+
+                <div class="form-group">
+                    <label for="product-photos">Фотографии</label>
+                    <div id="product-photos-container"></div>
+                    <div class="photo-input-row">
+                        <input type="url" id="product-photo-input" placeholder="https://...">
+                        <button type="button" class="btn-secondary" onclick="addProductPhoto()">Добавить URL</button>
+                    </div>
+                    <div class="photo-input-row">
+                        <input type="file" id="product-photo-file" accept="image/*" onchange="addProductPhotoFile()">
+                        <label for="product-photo-file" class="btn-secondary" style="cursor: pointer; margin: 0;">📷 Загрузить с ПК</label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="product-calories">Ккал/100г *</label>
+                        <input type="number" id="product-calories" step="0.1" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-proteins">Белки (г) *</label>
+                        <input type="number" id="product-proteins" step="0.1" min="0" max="100" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="product-fats">Жиры (г) *</label>
+                        <input type="number" id="product-fats" step="0.1" min="0" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-carbs">Углеводы (г) *</label>
+                        <input type="number" id="product-carbs" step="0.1" min="0" max="100" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div id="product-macros-sum" class="macros-sum"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="product-composition">Состав</label>
+                    <textarea id="product-composition" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="product-category">Категория *</label>
+                    <select id="product-category" required>
+                        <option value="Замороженный">Замороженный</option>
+                        <option value="Мясной">Мясной</option>
+                        <option value="Овощи">Овощи</option>
+                        <option value="Зелень">Зелень</option>
+                        <option value="Специи">Специи</option>
+                        <option value="Крупы">Крупы</option>
+                        <option value="Консервы">Консервы</option>
+                        <option value="Жидкость">Жидкость</option>
+                        <option value="Сладости">Сладости</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="product-cooking">Необходимость готовки *</label>
+                    <select id="product-cooking" required>
+                        <option value="Готовый к употреблению">Готовый к употреблению</option>
+                        <option value="Полуфабрикат">Полуфабрикат</option>
+                        <option value="Требует приготовления">Требует приготовления</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Дополнительные флаги</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="product-vegan">
+                            <span>🌱 Веган</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="product-gluten-free">
+                            <span>🌾 Без глютена</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="product-sugar-free">
+                            <span>🍬 Без сахара</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeProductModal()">Отмена</button>
+                    <button type="submit" class="btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="product-detail-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="product-detail-title"></h2>
+                <button class="modal-close" onclick="closeProductDetailModal()">✕</button>
+            </div>
+            <div id="product-detail-content" class="modal-body"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-danger" id="product-delete-btn" onclick="deleteCurrentProduct()">Удалить</button>
+                <button type="button" class="btn-primary" onclick="editCurrentProduct()">Редактировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dish Modal -->
+    <div id="dish-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="dish-modal-title">Новое блюдо</h2>
+                <button class="modal-close" onclick="closeDishModal()">✕</button>
+            </div>
+            <form id="dish-form" class="modal-form">
+                <input type="hidden" id="dish-id">
+                
+                <div class="form-group">
+                    <label for="dish-name">Название *</label>
+                    <input type="text" id="dish-name" required minlength="2" placeholder="Добавьте !десерт, !первое, !второе, !напиток, !салат, !суп, !перекус для авто-категории">
+                    <small class="form-hint">Макросы будут удалены из названия, категория установится автоматически</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="dish-photos">Фотографии</label>
+                    <div id="dish-photos-container"></div>
+                    <div class="photo-input-row">
+                        <input type="url" id="dish-photo-input" placeholder="https://...">
+                        <button type="button" class="btn-secondary" onclick="addDishPhoto()">Добавить URL</button>
+                    </div>
+                    <div class="photo-input-row">
+                        <input type="file" id="dish-photo-file" accept="image/*" onchange="addDishPhotoFile()">
+                        <label for="dish-photo-file" class="btn-secondary" style="cursor: pointer; margin: 0;">📷 Загрузить с ПК</label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dish-serving-size">Размер порции (г) *</label>
+                        <input type="number" id="dish-serving-size" step="0.1" min="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dish-category">Категория</label>
+                        <select id="dish-category">
+                            <option value="">Из макроса</option>
+                            <option value="Десерт">Десерт</option>
+                            <option value="Первое">Первое</option>
+                            <option value="Второе">Второе</option>
+                            <option value="Напиток">Напиток</option>
+                            <option value="Салат">Салат</option>
+                            <option value="Суп">Суп</option>
+                            <option value="Перекус">Перекус</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Состав блюда *</label>
+                    <div id="dish-ingredients-container" class="ingredients-list"></div>
+                    <button type="button" class="btn-secondary" onclick="openIngredientModal()">+ Добавить продукт</button>
+                </div>
+
+                <div class="nutrition-card">
+                    <h4>КБЖУ на порцию (авторасчёт)</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dish-calories">Ккал</label>
+                            <input type="number" id="dish-calories" step="0.1" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dish-proteins">Белки (г)</label>
+                            <input type="number" id="dish-proteins" step="0.1" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dish-fats">Жиры (г)</label>
+                            <input type="number" id="dish-fats" step="0.1" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dish-carbs">Углеводы (г)</label>
+                            <input type="number" id="dish-carbs" step="0.1" min="0" required>
+                        </div>
+                    </div>
+                    <small class="form-hint">Значения можно скорректировать вручную</small>
+                    <small id="nutrition-per-100g-hint" class="form-hint"></small>
+                </div>
+
+                <div class="form-group">
+                    <label>Дополнительные флаги</label>
+                    <div class="checkbox-group" id="dish-flags-container">
+                        <label class="checkbox-label disabled">
+                            <input type="checkbox" id="dish-vegan" disabled>
+                            <span>🌱 Веган</span>
+                        </label>
+                        <label class="checkbox-label disabled">
+                            <input type="checkbox" id="dish-gluten-free" disabled>
+                            <span>🌾 Без глютена</span>
+                        </label>
+                        <label class="checkbox-label disabled">
+                            <input type="checkbox" id="dish-sugar-free" disabled>
+                            <span>🍬 Без сахара</span>
+                        </label>
+                    </div>
+                    <small class="form-hint">Флаги доступны только если все продукты в составе имеют соответствующий флаг</small>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeDishModal()">Отмена</button>
+                    <button type="submit" class="btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ingredient Selection Modal -->
+    <div id="ingredient-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить продукт</h2>
+                <button class="modal-close" onclick="closeIngredientModal()">✕</button>
+            </div>
+            <div class="form-group">
+                <label for="ingredient-product-select">Продукт *</label>
+                <select id="ingredient-product-select"></select>
+            </div>
+            <div class="form-group">
+                <label for="ingredient-quantity">Количество (г) *</label>
+                <input type="number" id="ingredient-quantity" step="0.1" min="0.1" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeIngredientModal()">Отмена</button>
+                <button type="button" class="btn-primary" onclick="addIngredientToDish()">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dish Detail Modal -->
+    <div id="dish-detail-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="dish-detail-title"></h2>
+                <button class="modal-close" onclick="closeDishDetailModal()">✕</button>
+            </div>
+            <div id="dish-detail-content" class="modal-body"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-danger" id="dish-delete-btn" onclick="deleteCurrentDish()">Удалить</button>
+                <button type="button" class="btn-primary" onclick="editCurrentDish()">Редактировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
