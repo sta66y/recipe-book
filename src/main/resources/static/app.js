@@ -216,13 +216,23 @@ function initProductForm() {
 }
 
 async function saveProduct() {
+    const proteins = parseFloat(document.getElementById('product-proteins').value) || 0;
+    const fats = parseFloat(document.getElementById('product-fats').value) || 0;
+    const carbs = parseFloat(document.getElementById('product-carbs').value) || 0;
+    const sum = proteins + fats + carbs;
+    
+    if (sum > 100) {
+        showToast('Сумма БЖУ на 100 грамм не может превышать 100', 'error');
+        return;
+    }
+    
     const data = {
         name: document.getElementById('product-name').value,
         photos: productPhotos,
         calories: parseFloat(document.getElementById('product-calories').value),
-        proteins: parseFloat(document.getElementById('product-proteins').value),
-        fats: parseFloat(document.getElementById('product-fats').value),
-        carbohydrates: parseFloat(document.getElementById('product-carbs').value),
+        proteins: proteins,
+        fats: fats,
+        carbohydrates: carbs,
         composition: document.getElementById('product-composition').value || null,
         category: document.getElementById('product-category').value,
         cookingRequirement: document.getElementById('product-cooking').value,
@@ -680,15 +690,31 @@ function initDishForm() {
 }
 
 async function saveDish() {
+    const servingSize = parseFloat(document.getElementById('dish-serving-size').value) || 0;
+    const calories = parseFloat(document.getElementById('dish-calories').value) || 0;
+    const proteins = parseFloat(document.getElementById('dish-proteins').value) || 0;
+    const fats = parseFloat(document.getElementById('dish-fats').value) || 0;
+    const carbs = parseFloat(document.getElementById('dish-carbs').value) || 0;
+    
+    // Валидация суммы БЖУ на 100г порции (п. 2.1, 2.7)
+    if (servingSize > 0) {
+        const factor = 100 / servingSize;
+        const sumPer100 = (proteins + fats + carbs) * factor;
+        if (sumPer100 > 100) {
+            showToast(`Сумма БЖУ на 100г порции не может превышать 100 (текущая: ${sumPer100.toFixed(1)})`, 'error');
+            return;
+        }
+    }
+    
     const data = {
         name: document.getElementById('dish-name').value,
         photos: dishPhotos,
-        servingSize: parseFloat(document.getElementById('dish-serving-size').value),
+        servingSize: servingSize,
         category: document.getElementById('dish-category').value || null,
-        calories: parseFloat(document.getElementById('dish-calories').value),
-        proteins: parseFloat(document.getElementById('dish-proteins').value),
-        fats: parseFloat(document.getElementById('dish-fats').value),
-        carbohydrates: parseFloat(document.getElementById('dish-carbs').value),
+        calories: calories,
+        proteins: proteins,
+        fats: fats,
+        carbohydrates: carbs,
         ingredients: dishIngredients.map(ing => ({
             productId: ing.productId,
             quantity: ing.quantity

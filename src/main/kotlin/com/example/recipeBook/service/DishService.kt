@@ -199,6 +199,21 @@ class DishService(
                 "Количество продукта (ID ${ingredient.productId}) должно быть больше 0"
             }
         }
+        
+        // Валидация суммы БЖУ на 100г порции (п. 2.1, 2.7)
+        // Если значения указаны, проверяем сумму БЖУ на 100г
+        val calories = request.calories
+        val proteins = request.proteins
+        val fats = request.fats
+        val carbs = request.carbohydrates
+        
+        // Проверяем только если все значения указаны (авторасчёт или ручное заполнение)
+        if (calories != null && proteins != null && fats != null && carbs != null) {
+            val sumPer100 = (proteins + fats + carbs) * 100.0 / request.servingSize
+            require(sumPer100 <= 100) {
+                "Сумма БЖУ на 100 грамм порции не может превышать 100 (текущая: %.2f)".format(sumPer100)
+            }
+        }
     }
 
     /**
@@ -268,13 +283,16 @@ class DishService(
      * Логика (п. 2.4):
      * - Определяем доступные флаги (все продукты имеют соответствующий флаг)
      * - Из запрошенных пользователем оставляем только доступные
-     * - Если пользователь запросил недоступный флаг — ошибка
+     * - Если запрошенный флаг недоступен — он игнорируется (не применяется)
+     * - Автоматически снимаются флаги, которые более не доступны по составу
      */
     private fun applyFlags(dish: Dish, requestedFlags: List<String>) {
         val availableFlags = dish.getAvailableFlags()
 
+        // Сначала снимаем все флаги, которые более не доступны (автоснятие)
+        dish.flags.retainAll(availableFlags)
+
         if (requestedFlags.isEmpty()) {
-            dish.flags = mutableSetOf()
             return
         }
 
@@ -284,14 +302,10 @@ class DishService(
             val flag = Dish.DishFlag.fromDisplayName(flagName)
                 ?: throw IllegalArgumentException("Неизвестный флаг: '$flagName'")
 
-            if (flag !in availableFlags) {
-                throw IllegalArgumentException(
-                    "Флаг '${flag.displayName}' недоступен для этого блюда. " +
-                        "Не все продукты в составе имеют соответствующий флаг."
-                )
+            // Если флаг доступен — применяем, иначе игнорируем
+            if (flag in availableFlags) {
+                resolvedFlags.add(flag)
             }
-
-            resolvedFlags.add(flag)
         }
 
         dish.flags = resolvedFlags
