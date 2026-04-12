@@ -2,6 +2,7 @@ package com.example.recipeBook.service
 
 import com.example.recipeBook.dto.ProductRequest
 import com.example.recipeBook.dto.ProductResponse
+import com.example.recipeBook.entity.Dish
 import com.example.recipeBook.entity.Product
 import com.example.recipeBook.repository.DishRepository
 import com.example.recipeBook.repository.ProductRepository
@@ -46,6 +47,10 @@ class ProductService(
 
         validateRequest(request)
 
+        // Сохраняем старые флаги для проверки изменений
+        val oldFlags = product.flags.toSet()
+        val newFlags = resolveFlags(request.flags)
+
         product.name = request.name
         product.photos = request.photos.toMutableList()
         product.calories = request.calories
@@ -55,12 +60,18 @@ class ProductService(
         product.composition = request.composition
         product.category = resolveCategory(request.category)
         product.cookingRequirement = resolveCookingRequirement(request.cookingRequirement)
-        product.flags = resolveFlags(request.flags)
+        product.flags = newFlags
 
         // Валидация сущности
         product.validate()
 
         val saved = productRepository.save(product)
+
+        // Если флаги изменились, пересчитываем флаги у блюд, использующих этот продукт
+        if (oldFlags != newFlags) {
+            recalculateDependentDishesFlags(id)
+        }
+
         return ProductResponse.fromEntity(saved)
     }
 
@@ -163,6 +174,21 @@ class ProductService(
             return Pair(false, dishesUsingProduct.map { it.name })
         }
         return Pair(true, emptyList())
+    }
+
+    // ==================== Приватные методы ====================
+
+    /**
+     * Пересчитывает флаги у блюд, которые используют данный продукт.
+     * Если у продукта изменились флаги, блюда должны пересчитать свои доступные флаги.
+     */
+    private fun recalculateDependentDishesFlags(productId: Long) {
+        val dishesUsingProduct = dishRepository.findByProductInIngredients(productId)
+        dishesUsingProduct.forEach { dish ->
+            // Пересчитываем флаги блюда на основе текущего состава
+            dish.recalculateFlags()
+            dishRepository.save(dish)
+        }
     }
 
     // ==================== Приватные методы ====================
