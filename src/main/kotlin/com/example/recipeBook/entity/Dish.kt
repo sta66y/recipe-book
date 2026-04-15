@@ -293,6 +293,16 @@ class Dish(
     }
 
     /**
+     * Валидация: сумма весов ингредиентов не должна превышать размер порции.
+     */
+    fun validateIngredientsWeight() {
+        val totalIngredientsWeight = ingredients.sumOf { it.quantity }
+        require(totalIngredientsWeight <= servingSize) {
+            "Сумма весов ингредиентов (%.2f г) не может превышать размер порции (%.2f г)".format(totalIngredientsWeight, servingSize)
+        }
+    }
+
+    /**
      * Валидация: КБЖУ >= 0.
      */
     fun validateNutritionNonNegative() {
@@ -331,6 +341,7 @@ class Dish(
         validateName()
         validateServingSize()
         validateIngredients()
+        validateIngredientsWeight()
         validateNutritionNonNegative()
         validateNutritionPer100g()
         validatePhotos()
