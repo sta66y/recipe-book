@@ -54,7 +54,7 @@ interface ProductRepository : JpaRepository<Product, Long> {
           AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Product p1 JOIN p1.flags f1 WHERE p1 = p))
           AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Product p2 JOIN p2.flags f2 WHERE p2 = p))
           AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Product p3 JOIN p3.flags f3 WHERE p3 = p))
-        ORDER BY p.name ASC
+        ORDER BY LOWER(p.name) ASC
         """
     )
     fun findWithFiltersSortByName(

@@ -49,6 +49,7 @@ class DishController(
     /**
      * Поиск и фильтрация блюд (п. 2.5).
      * Без параметров — возвращает все блюда.
+     * Сортировка: name, calories, proteins, fats, carbohydrates
      */
     @GetMapping
     fun searchDishes(
@@ -56,9 +57,10 @@ class DishController(
         @RequestParam(required = false) category: String?,
         @RequestParam(required = false, defaultValue = "false") vegan: Boolean,
         @RequestParam(required = false, defaultValue = "false") glutenFree: Boolean,
-        @RequestParam(required = false, defaultValue = "false") sugarFree: Boolean
+        @RequestParam(required = false, defaultValue = "false") sugarFree: Boolean,
+        @RequestParam(required = false) sortBy: String?
     ): ResponseEntity<List<DishResponse>> {
-        val dishes = dishService.searchDishes(name, category, vegan, glutenFree, sugarFree)
+        val dishes = dishService.searchDishes(name, category, vegan, glutenFree, sugarFree, sortBy)
         return ResponseEntity.ok(dishes)
     }
 

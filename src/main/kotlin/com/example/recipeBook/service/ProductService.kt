@@ -108,10 +108,10 @@ class ProductService(
         }
 
         val products = when (sortBy?.lowercase()) {
-            "name" -> productRepository.findWithFiltersSortByName(
+            "name" -> productRepository.findWithFilters(
                 lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false
-            )
+            ).sortedBy { it.name.lowercase() }
             "calories" -> productRepository.findWithFiltersSortByCalories(
                 lowercaseName, categoryEnum, cookingReqEnum,
                 vegan ?: false, glutenFree ?: false, sugarFree ?: false

@@ -107,20 +107,46 @@ class DishService(
         category: String?,
         vegan: Boolean?,
         glutenFree: Boolean?,
-        sugarFree: Boolean?
+        sugarFree: Boolean?,
+        sortBy: String?
     ): List<DishResponse> {
         val categoryEnum = category?.let {
             Dish.Category.fromDisplayName(it)
                 ?: throw IllegalArgumentException("Неверная категория блюда: $it")
         }
 
-        val dishes = dishRepository.findWithFilters(
-            name = name?.lowercase(),
-            category = categoryEnum,
-            vegan = vegan ?: false,
-            glutenFree = glutenFree ?: false,
-            sugarFree = sugarFree ?: false
-        )
+        val dishes = when (sortBy?.lowercase()) {
+            "name" -> dishRepository.findWithFilters(
+                name = name?.lowercase(),
+                category = categoryEnum,
+                vegan = vegan ?: false,
+                glutenFree = glutenFree ?: false,
+                sugarFree = sugarFree ?: false
+            ).sortedBy { it.name.lowercase() }
+            "calories" -> dishRepository.findWithFiltersSortByCalories(
+                name?.lowercase(), categoryEnum,
+                vegan ?: false, glutenFree ?: false, sugarFree ?: false
+            )
+            "proteins" -> dishRepository.findWithFiltersSortByProteins(
+                name?.lowercase(), categoryEnum,
+                vegan ?: false, glutenFree ?: false, sugarFree ?: false
+            )
+            "fats" -> dishRepository.findWithFiltersSortByFats(
+                name?.lowercase(), categoryEnum,
+                vegan ?: false, glutenFree ?: false, sugarFree ?: false
+            )
+            "carbohydrates" -> dishRepository.findWithFiltersSortByCarbohydrates(
+                name?.lowercase(), categoryEnum,
+                vegan ?: false, glutenFree ?: false, sugarFree ?: false
+            )
+            else -> dishRepository.findWithFilters(
+                name = name?.lowercase(),
+                category = categoryEnum,
+                vegan = vegan ?: false,
+                glutenFree = glutenFree ?: false,
+                sugarFree = sugarFree ?: false
+            )
+        }
         return dishes.map { DishResponse.fromEntity(it) }
     }
 

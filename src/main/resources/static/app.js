@@ -515,6 +515,9 @@ async function loadDishes() {
             params.append('sugarFree', 'true');
         }
         
+        const sortBy = document.getElementById('dish-sort').value;
+        if (sortBy) params.append('sortBy', sortBy);
+        
         const response = await fetch(`${API_BASE}/dishes?${params.toString()}`);
         const dishes = await response.json();
         
@@ -586,6 +589,7 @@ function initDishFilters() {
     document.getElementById('dish-vegan-filter').addEventListener('change', loadDishes);
     document.getElementById('dish-gluten-free-filter').addEventListener('change', loadDishes);
     document.getElementById('dish-sugar-free-filter').addEventListener('change', loadDishes);
+    document.getElementById('dish-sort').addEventListener('change', loadDishes);
 }
 
 // ==================== Dish Modal ====================

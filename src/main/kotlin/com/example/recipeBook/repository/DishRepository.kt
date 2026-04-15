@@ -51,4 +51,106 @@ interface DishRepository : JpaRepository<Dish, Long> {
      */
     @Query("SELECT d FROM Dish d JOIN d.ingredients i WHERE i.product.id = :productId")
     fun findByProductInIngredients(@Param("productId") productId: Long): List<Dish>
+
+    // ==================== Сортировка (п. 2.5 — сортировка по названию, калорийности, БЖУ) ====================
+
+    @Query(
+        """
+        SELECT DISTINCT d FROM Dish d
+        LEFT JOIN d.flags f
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
+          AND (:category IS NULL OR d.category = :category)
+          AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
+          AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))
+          AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Dish d3 JOIN d3.flags f3 WHERE d3 = d))
+        ORDER BY LOWER(d.name) ASC
+        """
+    )
+    fun findWithFiltersSortByName(
+        @Param("name") name: String?,
+        @Param("category") category: Dish.Category?,
+        @Param("vegan") vegan: Boolean = false,
+        @Param("glutenFree") glutenFree: Boolean = false,
+        @Param("sugarFree") sugarFree: Boolean = false
+    ): List<Dish>
+
+    @Query(
+        """
+        SELECT DISTINCT d FROM Dish d
+        LEFT JOIN d.flags f
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
+          AND (:category IS NULL OR d.category = :category)
+          AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
+          AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))
+          AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Dish d3 JOIN d3.flags f3 WHERE d3 = d))
+        ORDER BY d.calories ASC
+        """
+    )
+    fun findWithFiltersSortByCalories(
+        @Param("name") name: String?,
+        @Param("category") category: Dish.Category?,
+        @Param("vegan") vegan: Boolean = false,
+        @Param("glutenFree") glutenFree: Boolean = false,
+        @Param("sugarFree") sugarFree: Boolean = false
+    ): List<Dish>
+
+    @Query(
+        """
+        SELECT DISTINCT d FROM Dish d
+        LEFT JOIN d.flags f
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
+          AND (:category IS NULL OR d.category = :category)
+          AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
+          AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))
+          AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Dish d3 JOIN d3.flags f3 WHERE d3 = d))
+        ORDER BY d.proteins ASC
+        """
+    )
+    fun findWithFiltersSortByProteins(
+        @Param("name") name: String?,
+        @Param("category") category: Dish.Category?,
+        @Param("vegan") vegan: Boolean = false,
+        @Param("glutenFree") glutenFree: Boolean = false,
+        @Param("sugarFree") sugarFree: Boolean = false
+    ): List<Dish>
+
+    @Query(
+        """
+        SELECT DISTINCT d FROM Dish d
+        LEFT JOIN d.flags f
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
+          AND (:category IS NULL OR d.category = :category)
+          AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
+          AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))
+          AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Dish d3 JOIN d3.flags f3 WHERE d3 = d))
+        ORDER BY d.fats ASC
+        """
+    )
+    fun findWithFiltersSortByFats(
+        @Param("name") name: String?,
+        @Param("category") category: Dish.Category?,
+        @Param("vegan") vegan: Boolean = false,
+        @Param("glutenFree") glutenFree: Boolean = false,
+        @Param("sugarFree") sugarFree: Boolean = false
+    ): List<Dish>
+
+    @Query(
+        """
+        SELECT DISTINCT d FROM Dish d
+        LEFT JOIN d.flags f
+        WHERE (:name IS NULL OR LOWER(d.name) LIKE %:name%)
+          AND (:category IS NULL OR d.category = :category)
+          AND (:vegan = false OR 'VEGAN' IN (SELECT f1 FROM Dish d1 JOIN d1.flags f1 WHERE d1 = d))
+          AND (:glutenFree = false OR 'GLUTEN_FREE' IN (SELECT f2 FROM Dish d2 JOIN d2.flags f2 WHERE d2 = d))
+          AND (:sugarFree = false OR 'SUGAR_FREE' IN (SELECT f3 FROM Dish d3 JOIN d3.flags f3 WHERE d3 = d))
+        ORDER BY d.carbohydrates ASC
+        """
+    )
+    fun findWithFiltersSortByCarbohydrates(
+        @Param("name") name: String?,
+        @Param("category") category: Dish.Category?,
+        @Param("vegan") vegan: Boolean = false,
+        @Param("glutenFree") glutenFree: Boolean = false,
+        @Param("sugarFree") sugarFree: Boolean = false
+    ): List<Dish>
 }
