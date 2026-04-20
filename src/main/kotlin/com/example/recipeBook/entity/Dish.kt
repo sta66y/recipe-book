@@ -341,7 +341,6 @@ class Dish(
         validateName()
         validateServingSize()
         validateIngredients()
-        validateIngredientsWeight()
         validateNutritionNonNegative()
         validateNutritionPer100g()
         validatePhotos()
