@@ -16,7 +16,6 @@ import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.ArgumentsProvider
 import org.junit.jupiter.params.provider.ArgumentsSource
@@ -42,230 +41,281 @@ import java.util.stream.Stream
 class ProductIntegrationTest {
 
     @Autowired
-    lateinit var mockMvc: MockMvc
+    private lateinit var mockMvc: MockMvc
 
     @Autowired
-    lateinit var productRepository: ProductRepository
+    private lateinit var productRepository: ProductRepository
 
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
 
-    class CreateProductArgumentsProvider : ArgumentsProvider {
-        override fun provideArguments(context: ExtensionContext) = ofCases(
-            "создание продукта с корректными данными".case(::successfulCreate),
-            "ошибка при коротком названии".case(::nameTooShort),
-            "ошибка при сумме БЖУ больше 100".case(::macrosSumOver100),
-            "ошибка при неверной категории".case(::invalidCategory)
+    class CreateProductSuccessProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("создание продукта с корректными данными", successfulCreate())
         )
-
-        private fun <T> String.case(block: () -> T) = arguments(this, block())
-        private fun ofCases(vararg values: Arguments): Stream<out Arguments> = Stream.of(*values)
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(CreateProductArgumentsProvider::class)
-    @DisplayName("Тестирование создания продукта")
-    fun `test create product`(caseName: String, testCase: ProductCreateDataSet) {
+    @ArgumentsSource(CreateProductSuccessProvider::class)
+    @DisplayName("Успешное создание продукта")
+    fun `test create product success`(caseName: String, testCase: ProductCreateDataSet) {
         val perform = mockMvc.perform(
             post("/api/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testCase.request))
         )
 
-        perform.andExpect(status().`is`(testCase.expectedStatusCode))
-
-        if (testCase.expectedStatusCode == 201) {
-            testCase.expectedResponse?.let { expected ->
-                perform
-                    .andExpect(jsonPath("$.id").exists())
-                    .andExpect(jsonPath("$.name").value(expected.name))
-                    .andExpect(jsonPath("$.calories").value(expected.calories))
-            }
-        } else {
-            testCase.expectedErrorMessage?.let { expectedMsg ->
-                val errorMsg = perform.andReturn().response.contentAsString
-                errorMsg shouldContain expectedMsg
-            }
-        }
+        perform
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.id").exists())
+            .andExpect(jsonPath("$.name").value(testCase.expectedResponse!!.name))
+            .andExpect(jsonPath("$.calories").value(testCase.expectedResponse.calories))
     }
 
-    class UpdateProductArgumentsProvider : ArgumentsProvider {
-        override fun provideArguments(context: ExtensionContext) = ofCases(
-            "обновление существующего продукта".case(::successfulUpdate),
-            "ошибка при обновлении несуществующего продукта".case(::productNotFound),
-            "ошибка при коротком названии".case(::updateNameTooShort)
+    class CreateProductErrorProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("ошибка при коротком названии", nameTooShort()),
+            arguments("ошибка при сумме БЖУ больше 100", macrosSumOver100()),
+            arguments("ошибка при неверной категории", invalidCategory())
         )
-
-        private fun <T> String.case(block: () -> T) = arguments(this, block())
-        private fun ofCases(vararg values: Arguments): Stream<out Arguments> = Stream.of(*values)
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(UpdateProductArgumentsProvider::class)
-    @DisplayName("Тестирование обновления продукта")
-    fun `test update product`(caseName: String, testCase: ProductUpdateDataSet) {
-        val productId = if (testCase.isExisting) createProduct() else 999L
+    @ArgumentsSource(CreateProductErrorProvider::class)
+    @DisplayName("Ошибки при создании продукта")
+    fun `test create product errors`(caseName: String, testCase: ProductCreateDataSet) {
+        val errorMsg = mockMvc.perform(
+            post("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testCase.request))
+        )
+            .andExpect(status().`is`(testCase.expectedStatusCode))
+            .andReturn()
+            .response
+            .contentAsString
 
-        val perform = mockMvc.perform(
+        errorMsg shouldContain testCase.expectedErrorMessage!!
+    }
+
+    class UpdateProductSuccessProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("обновление существующего продукта", successfulUpdate())
+        )
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ArgumentsSource(UpdateProductSuccessProvider::class)
+    @DisplayName("Успешное обновление продукта")
+    fun `test update product success`(caseName: String, testCase: ProductUpdateDataSet) {
+        val productId = createProduct()
+
+        mockMvc.perform(
             put("/api/products/$productId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testCase.request))
         )
-
-        perform.andExpect(status().`is`(testCase.expectedStatusCode))
-
-        when (testCase.expectedStatusCode) {
-            200 -> {
-                testCase.expectedResponse?.let { expected ->
-                    perform.andExpect(jsonPath("$.name").value(expected.name))
-                }
-            }
-            404, 400 -> {
-                testCase.expectedErrorMessage?.let { expectedMsg ->
-                    val errorMsg = perform.andReturn().response.contentAsString
-                    errorMsg shouldContain expectedMsg
-                }
-            }
-        }
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.name").value(testCase.expectedResponse!!.name))
     }
 
-    class GetProductArgumentsProvider : ArgumentsProvider {
-        override fun provideArguments(context: ExtensionContext) = ofCases(
-            "получение существующего продукта".case(::successfulGet),
-            "ошибка при получении несуществующего продукта".case(::productNotFoundGet)
+    class UpdateProductErrorProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("ошибка при обновлении несуществующего продукта", productNotFound()),
+            arguments("ошибка при коротком названии", updateNameTooShort())
         )
-
-        private fun <T> String.case(block: () -> T) = arguments(this, block())
-        private fun ofCases(vararg values: Arguments): Stream<out Arguments> = Stream.of(*values)
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(GetProductArgumentsProvider::class)
-    @DisplayName("Тестирование получения продукта")
-    fun `test get product`(caseName: String, testCase: ProductGetDataSet) {
-        val productId = if (testCase.isExisting) createProduct(testCase.expectedResponse!!) else 999L
+    @ArgumentsSource(UpdateProductErrorProvider::class)
+    @DisplayName("Ошибки при обновлении продукта")
+    fun `test update product errors`(caseName: String, testCase: ProductUpdateDataSet) {
+        val productId = 999L
 
-        val perform = mockMvc.perform(
+        val errorMsg = mockMvc.perform(
+            put("/api/products/$productId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testCase.request))
+        )
+            .andExpect(status().`is`(testCase.expectedStatusCode))
+            .andReturn()
+            .response
+            .contentAsString
+
+        errorMsg shouldContain testCase.expectedErrorMessage!!
+    }
+
+    class GetProductSuccessProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("получение существующего продукта", successfulGet())
+        )
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ArgumentsSource(GetProductSuccessProvider::class)
+    @DisplayName("Успешное получение продукта")
+    fun `test get product success`(caseName: String, testCase: ProductGetDataSet) {
+        val productId = createProduct(testCase.expectedResponse!!)
+
+        mockMvc.perform(
             get("/api/products/$productId")
                 .contentType(MediaType.APPLICATION_JSON)
         )
-
-        perform.andExpect(status().`is`(testCase.expectedStatusCode))
-
-        if (testCase.expectedStatusCode == 200) {
-            testCase.expectedResponse?.let { expected ->
-                perform
-                    .andExpect(jsonPath("$.id").value(productId))
-                    .andExpect(jsonPath("$.name").value(expected.name))
-            }
-        } else {
-            testCase.expectedErrorMessage?.let { expectedMsg ->
-                val errorMsg = perform.andReturn().response.contentAsString
-                errorMsg shouldContain expectedMsg
-            }
-        }
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(productId))
+            .andExpect(jsonPath("$.name").value(testCase.expectedResponse.name))
     }
 
-    class SearchProductArgumentsProvider : ArgumentsProvider {
-        override fun provideArguments(context: ExtensionContext) = ofCases(
-            "поиск всех продуктов".case(::searchAllProducts),
-            "поиск по части названия".case(::searchByNamePartial),
-            "поиск по категории".case(::searchByCategory),
-            "поиск по флагу".case(::searchByVeganFlag),
-            "сортировка по калориям".case(::sortByCalories),
-            "ошибка при неверной категории".case(::searchInvalidCategory)
+    class GetProductErrorProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("ошибка при получении несуществующего продукта", productNotFoundGet())
         )
-
-        private fun <T> String.case(block: () -> T) = arguments(this, block())
-        private fun ofCases(vararg values: Arguments): Stream<out Arguments> = Stream.of(*values)
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(SearchProductArgumentsProvider::class)
-    @DisplayName("Тестирование поиска продуктов")
-    fun `test search products`(caseName: String, testCase: ProductSearchDataSet) {
+    @ArgumentsSource(GetProductErrorProvider::class)
+    @DisplayName("Ошибки при получении продукта")
+    fun `test get product errors`(caseName: String, testCase: ProductGetDataSet) {
+        val productId = 999L
+
+        val errorMsg = mockMvc.perform(
+            get("/api/products/$productId")
+                .contentType(MediaType.APPLICATION_JSON)
+        )
+            .andExpect(status().`is`(testCase.expectedStatusCode))
+            .andReturn()
+            .response
+            .contentAsString
+
+        errorMsg shouldContain testCase.expectedErrorMessage!!
+    }
+
+    class SearchProductSuccessProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("поиск всех продуктов", searchAllProducts()),
+            arguments("поиск по части названия", searchByNamePartial()),
+            arguments("поиск по категории", searchByCategory()),
+            arguments("поиск по флагу", searchByVeganFlag()),
+            arguments("сортировка по калориям", sortByCalories())
+        )
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ArgumentsSource(SearchProductSuccessProvider::class)
+    @DisplayName("Успешный поиск продуктов")
+    fun `test search products success`(caseName: String, testCase: ProductSearchDataSet) {
         createTestProductsForSearch()
 
         val urlBuilder = StringBuilder("/api/products?")
         testCase.name?.let { urlBuilder.append("name=$it&") }
         testCase.category?.let { urlBuilder.append("category=$it&") }
         testCase.cookingRequirement?.let { urlBuilder.append("cookingRequirement=$it&") }
-        if (testCase.vegan) urlBuilder.append("vegan=true&")
-        if (testCase.glutenFree) urlBuilder.append("glutenFree=true&")
-        if (testCase.sugarFree) urlBuilder.append("sugarFree=true&")
+        testCase.vegan.takeIf { it }?.let { urlBuilder.append("vegan=true&") }
+        testCase.glutenFree.takeIf { it }?.let { urlBuilder.append("glutenFree=true&") }
+        testCase.sugarFree.takeIf { it }?.let { urlBuilder.append("sugarFree=true&") }
         testCase.sortBy?.let { urlBuilder.append("sortBy=$it&") }
-
         val url = urlBuilder.toString().trimEnd('&', '?')
 
         val perform = mockMvc.perform(
             get(url).contentType(MediaType.APPLICATION_JSON)
         )
 
-        perform.andExpect(status().`is`(testCase.expectedStatusCode))
+        perform.andExpect(status().isOk)
 
-        when (testCase.expectedStatusCode) {
-            200 -> {
-                testCase.expectedProductCount?.let { count ->
-                    perform.andExpect(jsonPath("$.length()").value(count))
-                }
-                testCase.expectedProductNames?.let { names ->
-                    names.forEachIndexed { index, name ->
-                        perform.andExpect(jsonPath("$[$index].name").value(name))
-                    }
-                }
-            }
-            400 -> {
-                testCase.expectedErrorMessage?.let { expectedMsg ->
-                    val errorMsg = perform.andReturn().response.contentAsString
-                    errorMsg shouldContain expectedMsg
-                }
+        testCase.expectedProductCount?.let { count ->
+            perform.andExpect(jsonPath("$.length()").value(count))
+        }
+
+        testCase.expectedProductNames?.let { names ->
+            names.forEachIndexed { index, name ->
+                perform.andExpect(jsonPath("$[$index].name").value(name))
             }
         }
     }
 
-    class DeleteProductArgumentsProvider : ArgumentsProvider {
-        override fun provideArguments(context: ExtensionContext) = ofCases(
-            "успешное удаление продукта".case(::successfulDelete),
-            "ошибка при удалении несуществующего продукта".case(::deleteProductNotFound),
-            "ошибка при удалении продукта используемого в блюде".case(::deleteProductUsedInDish)
+    class SearchProductErrorProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("ошибка при неверной категории", searchInvalidCategory())
         )
-
-        private fun <T> String.case(block: () -> T) = arguments(this, block())
-        private fun ofCases(vararg values: Arguments): Stream<out Arguments> = Stream.of(*values)
     }
 
     @ParameterizedTest(name = "{0}")
-    @ArgumentsSource(DeleteProductArgumentsProvider::class)
-    @DisplayName("Тестирование удаления продукта")
-    fun `test delete product`(caseName: String, testCase: ProductDeleteDataSet) {
-        val productId = if (testCase.isExisting) {
-            val id = createProduct()
-            if (testCase.isUsedInDish) {
-                createDishWithProduct(id)
-            }
-            id
-        } else {
-            999L
-        }
+    @ArgumentsSource(SearchProductErrorProvider::class)
+    @DisplayName("Ошибки при поиске продуктов")
+    fun `test search products errors`(caseName: String, testCase: ProductSearchDataSet) {
+        createTestProductsForSearch()
 
-        val perform = mockMvc.perform(
+        val urlBuilder = StringBuilder("/api/products?")
+        testCase.name?.let { urlBuilder.append("name=$it&") }
+        testCase.category?.let { urlBuilder.append("category=$it&") }
+        testCase.cookingRequirement?.let { urlBuilder.append("cookingRequirement=$it&") }
+        testCase.vegan.takeIf { it }?.let { urlBuilder.append("vegan=true&") }
+        testCase.glutenFree.takeIf { it }?.let { urlBuilder.append("glutenFree=true&") }
+        testCase.sugarFree.takeIf { it }?.let { urlBuilder.append("sugarFree=true&") }
+        testCase.sortBy?.let { urlBuilder.append("sortBy=$it&") }
+        val url = urlBuilder.toString().trimEnd('&', '?')
+
+        val errorMsg = mockMvc.perform(
+            get(url).contentType(MediaType.APPLICATION_JSON)
+        )
+            .andExpect(status().`is`(testCase.expectedStatusCode))
+            .andReturn()
+            .response
+            .contentAsString
+
+        errorMsg shouldContain testCase.expectedErrorMessage!!
+    }
+
+    class DeleteProductSuccessProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("успешное удаление продукта", successfulDelete())
+        )
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ArgumentsSource(DeleteProductSuccessProvider::class)
+    @DisplayName("Успешное удаление продукта")
+    fun `test delete product success`(caseName: String, testCase: ProductDeleteDataSet) {
+        val productId = createProduct()
+
+        mockMvc.perform(
             delete("/api/products/$productId")
                 .contentType(MediaType.APPLICATION_JSON)
         )
+            .andExpect(status().isNoContent)
 
-        perform.andExpect(status().`is`(testCase.expectedStatusCode))
+        val exists = productRepository.existsById(productId)
+        exists shouldBe false
+    }
 
-        when (testCase.expectedStatusCode) {
-            204 -> {
-                val exists = productRepository.existsById(productId)
-                exists shouldBe false
+    class DeleteProductErrorProvider : ArgumentsProvider {
+        override fun provideArguments(context: ExtensionContext) = Stream.of(
+            arguments("ошибка при удалении несуществующего продукта", deleteProductNotFound()),
+            arguments("ошибка при удалении продукта используемого в блюде", deleteProductUsedInDish())
+        )
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ArgumentsSource(DeleteProductErrorProvider::class)
+    @DisplayName("Ошибки при удалении продукта")
+    fun `test delete product errors`(caseName: String, testCase: ProductDeleteDataSet) {
+        val productId = when {
+            testCase.isExisting -> {
+                val id = createProduct()
+                createDishWithProduct(id)
+                id
             }
-            404, 409 -> {
-                testCase.expectedErrorMessage?.let { expectedMsg ->
-                    val errorMsg = perform.andReturn().response.contentAsString
-                    errorMsg shouldContain expectedMsg
-                }
-            }
+            else -> 999L
         }
+
+        val errorMsg = mockMvc.perform(
+            delete("/api/products/$productId")
+                .contentType(MediaType.APPLICATION_JSON)
+        )
+            .andExpect(status().`is`(testCase.expectedStatusCode))
+            .andReturn()
+            .response
+            .contentAsString
+
+        errorMsg shouldContain testCase.expectedErrorMessage!!
     }
 
     private fun createDishWithProduct(productId: Long) {
@@ -286,7 +336,6 @@ class ProductIntegrationTest {
             category = "Второе",
             flags = emptyList()
         )
-
         mockMvc.perform(
             post("/api/dishes")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -302,7 +351,6 @@ class ProductIntegrationTest {
             ProductRequest("Product4", emptyList(), 120.0, 12.0, 6.0, 20.0, "Composition4", "Овощи", "Готовый к употреблению", listOf("Веган")),
             ProductRequest("Product5", emptyList(), 150.0, 15.0, 7.0, 25.0, "Composition5", "Крупы", "Требует приготовления", listOf("Без глютена", "Без сахара"))
         )
-
         testProducts.forEach { request ->
             mockMvc.perform(
                 post("/api/products")
@@ -325,7 +373,6 @@ class ProductIntegrationTest {
             cookingRequirement = expectedResponse.cookingRequirement,
             flags = emptyList()
         )
-
         val result = mockMvc.perform(
             post("/api/products")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -333,7 +380,6 @@ class ProductIntegrationTest {
         )
             .andExpect(status().isCreated)
             .andReturn()
-
         return objectMapper.readTree(result.response.contentAsString)
             .get("id").asLong()
     }
@@ -351,7 +397,6 @@ class ProductIntegrationTest {
             cookingRequirement = "Готовый к употреблению",
             flags = emptyList()
         )
-
         val result = mockMvc.perform(
             post("/api/products")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -359,7 +404,6 @@ class ProductIntegrationTest {
         )
             .andExpect(status().isCreated)
             .andReturn()
-
         return objectMapper.readTree(result.response.contentAsString)
             .get("id").asLong()
     }
