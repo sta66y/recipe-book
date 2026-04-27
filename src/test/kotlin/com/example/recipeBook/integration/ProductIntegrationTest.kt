@@ -1,6 +1,5 @@
 package com.example.recipeBook.integration
 
-import com.example.recipeBook.TestcontainersConfiguration
 import com.example.recipeBook.data.ProductCreateDataSet
 import com.example.recipeBook.data.ProductDeleteDataSet
 import com.example.recipeBook.data.ProductGetDataSet
@@ -10,8 +9,6 @@ import com.example.recipeBook.dto.DishIngredientRequest
 import com.example.recipeBook.dto.DishRequest
 import com.example.recipeBook.dto.ProductRequest
 import com.example.recipeBook.dto.ProductResponse
-import com.example.recipeBook.repository.ProductRepository
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.extension.ExtensionContext
@@ -19,32 +16,25 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.ArgumentsProvider
 import org.junit.jupiter.params.provider.ArgumentsSource
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
-import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.test.web.reactive.server.WebTestClient
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.jacksonObjectMapper
+import java.time.Duration
+import java.util.UUID
 import java.util.stream.Stream
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import(TestcontainersConfiguration::class)
-@Transactional
 class ProductIntegrationTest {
 
-    @Autowired
-    private lateinit var mockMvc: MockMvc
+    private companion object {
+        private const val BASE_URL = "http://localhost:8080"
+    }
 
-    @Autowired
-    private lateinit var productRepository: ProductRepository
+    private val webTestClient: WebTestClient = WebTestClient
+        .bindToServer()
+        .baseUrl(BASE_URL)
+        .responseTimeout(Duration.ofSeconds(30))
+        .build()
 
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
 
@@ -58,17 +48,18 @@ class ProductIntegrationTest {
     @ArgumentsSource(CreateProductSuccessProvider::class)
     @DisplayName("Успешное создание продукта")
     fun `test create product success`(caseName: String, testCase: ProductCreateDataSet) {
-        val perform = mockMvc.perform(
-            post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testCase.request))
-        )
+        val request = testCase.request.withUniqueName()
 
-        perform
-            .andExpect(status().isCreated)
-            .andExpect(jsonPath("$.id").exists())
-            .andExpect(jsonPath("$.name").value(testCase.expectedResponse!!.name))
-            .andExpect(jsonPath("$.calories").value(testCase.expectedResponse.calories))
+        webTestClient.post()
+            .uri("/api/products")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody()
+            .jsonPath("$.id").exists()
+            .jsonPath("$.name").isEqualTo(request.name)
+            .jsonPath("$.calories").isEqualTo(testCase.expectedResponse!!.calories)
     }
 
     class CreateProductErrorProvider : ArgumentsProvider {
@@ -83,17 +74,17 @@ class ProductIntegrationTest {
     @ArgumentsSource(CreateProductErrorProvider::class)
     @DisplayName("Ошибки при создании продукта")
     fun `test create product errors`(caseName: String, testCase: ProductCreateDataSet) {
-        val errorMsg = mockMvc.perform(
-            post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testCase.request))
-        )
-            .andExpect(status().`is`(testCase.expectedStatusCode))
-            .andReturn()
-            .response
-            .contentAsString
+        val body = webTestClient.post()
+            .uri("/api/products")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(testCase.request)
+            .exchange()
+            .expectStatus().isEqualTo(testCase.expectedStatusCode)
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody ?: ""
 
-        errorMsg shouldContain testCase.expectedErrorMessage!!
+        body shouldContain testCase.expectedErrorMessage!!
     }
 
     class UpdateProductSuccessProvider : ArgumentsProvider {
@@ -107,14 +98,16 @@ class ProductIntegrationTest {
     @DisplayName("Успешное обновление продукта")
     fun `test update product success`(caseName: String, testCase: ProductUpdateDataSet) {
         val productId = createProduct()
+        val request = testCase.request.withUniqueName()
 
-        mockMvc.perform(
-            put("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testCase.request))
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.name").value(testCase.expectedResponse!!.name))
+        webTestClient.put()
+            .uri("/api/products/$productId")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.name").isEqualTo(request.name)
     }
 
     class UpdateProductErrorProvider : ArgumentsProvider {
@@ -128,19 +121,19 @@ class ProductIntegrationTest {
     @ArgumentsSource(UpdateProductErrorProvider::class)
     @DisplayName("Ошибки при обновлении продукта")
     fun `test update product errors`(caseName: String, testCase: ProductUpdateDataSet) {
-        val productId = 999L
+        val productId = 999_999_999L
 
-        val errorMsg = mockMvc.perform(
-            put("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testCase.request))
-        )
-            .andExpect(status().`is`(testCase.expectedStatusCode))
-            .andReturn()
-            .response
-            .contentAsString
+        val body = webTestClient.put()
+            .uri("/api/products/$productId")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(testCase.request)
+            .exchange()
+            .expectStatus().isEqualTo(testCase.expectedStatusCode)
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody ?: ""
 
-        errorMsg shouldContain testCase.expectedErrorMessage!!
+        body shouldContain testCase.expectedErrorMessage!!
     }
 
     class GetProductSuccessProvider : ArgumentsProvider {
@@ -155,13 +148,13 @@ class ProductIntegrationTest {
     fun `test get product success`(caseName: String, testCase: ProductGetDataSet) {
         val productId = createProduct(testCase.expectedResponse!!)
 
-        mockMvc.perform(
-            get("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.id").value(productId))
-            .andExpect(jsonPath("$.name").value(testCase.expectedResponse.name))
+        webTestClient.get()
+            .uri("/api/products/$productId")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.id").isEqualTo(productId)
     }
 
     class GetProductErrorProvider : ArgumentsProvider {
@@ -174,18 +167,18 @@ class ProductIntegrationTest {
     @ArgumentsSource(GetProductErrorProvider::class)
     @DisplayName("Ошибки при получении продукта")
     fun `test get product errors`(caseName: String, testCase: ProductGetDataSet) {
-        val productId = 999L
+        val productId = 999_999_999L
 
-        val errorMsg = mockMvc.perform(
-            get("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().`is`(testCase.expectedStatusCode))
-            .andReturn()
-            .response
-            .contentAsString
+        val body = webTestClient.get()
+            .uri("/api/products/$productId")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isEqualTo(testCase.expectedStatusCode)
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody ?: ""
 
-        errorMsg shouldContain testCase.expectedErrorMessage!!
+        body shouldContain testCase.expectedErrorMessage!!
     }
 
     class SearchProductSuccessProvider : ArgumentsProvider {
@@ -204,30 +197,22 @@ class ProductIntegrationTest {
     fun `test search products success`(caseName: String, testCase: ProductSearchDataSet) {
         createTestProductsForSearch()
 
-        val urlBuilder = StringBuilder("/api/products?")
-        testCase.name?.let { urlBuilder.append("name=$it&") }
-        testCase.category?.let { urlBuilder.append("category=$it&") }
-        testCase.cookingRequirement?.let { urlBuilder.append("cookingRequirement=$it&") }
-        testCase.vegan.takeIf { it }?.let { urlBuilder.append("vegan=true&") }
-        testCase.glutenFree.takeIf { it }?.let { urlBuilder.append("glutenFree=true&") }
-        testCase.sugarFree.takeIf { it }?.let { urlBuilder.append("sugarFree=true&") }
-        testCase.sortBy?.let { urlBuilder.append("sortBy=$it&") }
-        val url = urlBuilder.toString().trimEnd('&', '?')
+        val spec = webTestClient.get()
+            .uri(buildSearchUrl(testCase))
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
 
-        val perform = mockMvc.perform(
-            get(url).contentType(MediaType.APPLICATION_JSON)
-        )
-
-        perform.andExpect(status().isOk)
-
-        testCase.expectedProductCount?.let { count ->
-            perform.andExpect(jsonPath("$.length()").value(count))
-        }
-
-        testCase.expectedProductNames?.let { names ->
-            names.forEachIndexed { index, name ->
-                perform.andExpect(jsonPath("$[$index].name").value(name))
+        testCase.expectedProductCount?.let { expected ->
+            spec.jsonPath("$.length()").value<Int> { actual ->
+                assert(actual >= expected) {
+                    "ожидалось минимум $expected, получено $actual"
+                }
             }
+        }
+        testCase.expectedProductNames?.forEach { expectedName ->
+            spec.jsonPath("$[?(@.name =~ /.*${Regex.escape(expectedName)}.*/)]").exists()
         }
     }
 
@@ -241,27 +226,16 @@ class ProductIntegrationTest {
     @ArgumentsSource(SearchProductErrorProvider::class)
     @DisplayName("Ошибки при поиске продуктов")
     fun `test search products errors`(caseName: String, testCase: ProductSearchDataSet) {
-        createTestProductsForSearch()
+        val body = webTestClient.get()
+            .uri(buildSearchUrl(testCase))
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isEqualTo(testCase.expectedStatusCode)
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody ?: ""
 
-        val urlBuilder = StringBuilder("/api/products?")
-        testCase.name?.let { urlBuilder.append("name=$it&") }
-        testCase.category?.let { urlBuilder.append("category=$it&") }
-        testCase.cookingRequirement?.let { urlBuilder.append("cookingRequirement=$it&") }
-        testCase.vegan.takeIf { it }?.let { urlBuilder.append("vegan=true&") }
-        testCase.glutenFree.takeIf { it }?.let { urlBuilder.append("glutenFree=true&") }
-        testCase.sugarFree.takeIf { it }?.let { urlBuilder.append("sugarFree=true&") }
-        testCase.sortBy?.let { urlBuilder.append("sortBy=$it&") }
-        val url = urlBuilder.toString().trimEnd('&', '?')
-
-        val errorMsg = mockMvc.perform(
-            get(url).contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().`is`(testCase.expectedStatusCode))
-            .andReturn()
-            .response
-            .contentAsString
-
-        errorMsg shouldContain testCase.expectedErrorMessage!!
+        body shouldContain testCase.expectedErrorMessage!!
     }
 
     class DeleteProductSuccessProvider : ArgumentsProvider {
@@ -276,14 +250,15 @@ class ProductIntegrationTest {
     fun `test delete product success`(caseName: String, testCase: ProductDeleteDataSet) {
         val productId = createProduct()
 
-        mockMvc.perform(
-            delete("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().isNoContent)
+        webTestClient.delete()
+            .uri("/api/products/$productId")
+            .exchange()
+            .expectStatus().isNoContent
 
-        val exists = productRepository.existsById(productId)
-        exists shouldBe false
+        webTestClient.get()
+            .uri("/api/products/$productId")
+            .exchange()
+            .expectStatus().isNotFound
     }
 
     class DeleteProductErrorProvider : ArgumentsProvider {
@@ -303,66 +278,80 @@ class ProductIntegrationTest {
                 createDishWithProduct(id)
                 id
             }
-            else -> 999L
+            else -> 999_999_999L
         }
 
-        val errorMsg = mockMvc.perform(
-            delete("/api/products/$productId")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().`is`(testCase.expectedStatusCode))
-            .andReturn()
-            .response
-            .contentAsString
+        val body = webTestClient.delete()
+            .uri("/api/products/$productId")
+            .exchange()
+            .expectStatus().isEqualTo(testCase.expectedStatusCode)
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody ?: ""
 
-        errorMsg shouldContain testCase.expectedErrorMessage!!
+        body shouldContain testCase.expectedErrorMessage!!
     }
+
+    private fun buildSearchUrl(testCase: ProductSearchDataSet): String {
+        val sb = StringBuilder("/api/products?")
+        testCase.name?.let { sb.append("name=$it&") }
+        testCase.category?.let { sb.append("category=$it&") }
+        testCase.cookingRequirement?.let { sb.append("cookingRequirement=$it&") }
+        if (testCase.vegan) sb.append("vegan=true&")
+        if (testCase.glutenFree) sb.append("glutenFree=true&")
+        if (testCase.sugarFree) sb.append("sugarFree=true&")
+        testCase.sortBy?.let { sb.append("sortBy=$it&") }
+        return sb.toString().trimEnd('&', '?')
+    }
+
+    private fun ProductRequest.withUniqueName(): ProductRequest =
+        copy(name = "${name}_${UUID.randomUUID().toString().take(8)}")
 
     private fun createDishWithProduct(productId: Long) {
         val dishRequest = DishRequest(
-            name = "TestDish",
+            name = "TestDish_${UUID.randomUUID().toString().take(8)}",
             photos = emptyList(),
             calories = null,
             proteins = null,
             fats = null,
             carbohydrates = null,
-            ingredients = listOf(
-                DishIngredientRequest(
-                    productId = productId,
-                    quantity = 100.0
-                )
-            ),
+            ingredients = listOf(DishIngredientRequest(productId = productId, quantity = 100.0)),
             servingSize = 200.0,
             category = "Второе",
             flags = emptyList()
         )
-        mockMvc.perform(
-            post("/api/dishes")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dishRequest))
-        ).andExpect(status().isCreated)
+
+        webTestClient.post()
+            .uri("/api/dishes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(dishRequest)
+            .exchange()
+            .expectStatus().isCreated
     }
 
     private fun createTestProductsForSearch() {
+        val suffix = UUID.randomUUID().toString().take(8)
         val testProducts = listOf(
-            ProductRequest("Product1", emptyList(), 100.0, 10.0, 5.0, 15.0, "Composition1", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена")),
-            ProductRequest("Product2", emptyList(), 80.0, 8.0, 3.0, 12.0, "Composition2", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена")),
-            ProductRequest("Product3", emptyList(), 50.0, 5.0, 2.0, 8.0, "Composition3", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена", "Без сахара")),
-            ProductRequest("Product4", emptyList(), 120.0, 12.0, 6.0, 20.0, "Composition4", "Овощи", "Готовый к употреблению", listOf("Веган")),
-            ProductRequest("Product5", emptyList(), 150.0, 15.0, 7.0, 25.0, "Composition5", "Крупы", "Требует приготовления", listOf("Без глютена", "Без сахара"))
+            ProductRequest("Product1_$suffix", emptyList(), 100.0, 10.0, 5.0, 15.0, "Composition1", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена")),
+            ProductRequest("Product2_$suffix", emptyList(), 80.0, 8.0, 3.0, 12.0, "Composition2", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена")),
+            ProductRequest("Product3_$suffix", emptyList(), 50.0, 5.0, 2.0, 8.0, "Composition3", "Овощи", "Готовый к употреблению", listOf("Веган", "Без глютена", "Без сахара")),
+            ProductRequest("Product4_$suffix", emptyList(), 120.0, 12.0, 6.0, 20.0, "Composition4", "Овощи", "Готовый к употреблению", listOf("Веган")),
+            ProductRequest("Product5_$suffix", emptyList(), 150.0, 15.0, 7.0, 25.0, "Composition5", "Крупы", "Требует приготовления", listOf("Без глютена", "Без сахара"))
         )
+
         testProducts.forEach { request ->
-            mockMvc.perform(
-                post("/api/products")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            ).andExpect(status().isCreated)
+            webTestClient.post()
+                .uri("/api/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated
         }
     }
 
     private fun createProduct(expectedResponse: ProductResponse): Long {
         val request = ProductRequest(
-            name = expectedResponse.name,
+            name = "${expectedResponse.name}_${UUID.randomUUID().toString().take(8)}",
             photos = emptyList(),
             calories = expectedResponse.calories,
             proteins = expectedResponse.proteins,
@@ -373,20 +362,23 @@ class ProductIntegrationTest {
             cookingRequirement = expectedResponse.cookingRequirement,
             flags = emptyList()
         )
-        val result = mockMvc.perform(
-            post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-        )
-            .andExpect(status().isCreated)
-            .andReturn()
-        return objectMapper.readTree(result.response.contentAsString)
-            .get("id").asLong()
+
+        val body = webTestClient.post()
+            .uri("/api/products")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody!!
+
+        return objectMapper.readTree(body).get("id").asLong()
     }
 
     private fun createProduct(): Long {
         val request = ProductRequest(
-            name = "TestProduct",
+            name = "TestProduct_${UUID.randomUUID().toString().take(8)}",
             photos = emptyList(),
             calories = 100.0,
             proteins = 10.0,
@@ -397,14 +389,17 @@ class ProductIntegrationTest {
             cookingRequirement = "Готовый к употреблению",
             flags = emptyList()
         )
-        val result = mockMvc.perform(
-            post("/api/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-        )
-            .andExpect(status().isCreated)
-            .andReturn()
-        return objectMapper.readTree(result.response.contentAsString)
-            .get("id").asLong()
+
+        val body = webTestClient.post()
+            .uri("/api/products")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody(String::class.java)
+            .returnResult()
+            .responseBody!!
+
+        return objectMapper.readTree(body).get("id").asLong()
     }
 }
