@@ -15,3 +15,5 @@ logging:
     org.springframework: INFO
     org.hibernate: WARN
     com.example.recipeBook: DEBUG
+server:
+  port: 8080

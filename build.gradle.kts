@@ -39,6 +39,9 @@ dependencies {
 	testImplementation("io.mockk:mockk:1.13.10")
 	testImplementation("io.kotest.extensions:kotest-extensions-spring:1.1.3")
 	testImplementation("org.springframework.boot:spring-boot-starter-webflux") // для WebTestClient
+
+	testImplementation("org.seleniumhq.selenium:selenium-java:4.27.0")
+	testImplementation("io.github.bonigarcia:webdrivermanager:5.9.2")
 }
 
 kotlin {

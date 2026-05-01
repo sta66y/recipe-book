@@ -12,8 +12,8 @@
         <header class="header">
             <h1 class="app-title">🍳 Книга рецептов</h1>
             <nav class="nav-tabs">
-                <button class="nav-tab active" data-tab="products">Продукты</button>
-                <button class="nav-tab" data-tab="dishes">Блюда</button>
+                <button class="nav-tab active" id="products-tab-btn" data-tab="products">Продукты</button>
+                <button class="nav-tab" id="dishes-tab-btn" data-tab="dishes">Блюда</button>
             </nav>
         </header>
 
@@ -23,7 +23,7 @@
                 <div class="search-bar">
                     <input type="text" id="product-search" placeholder="🔍 Поиск продукта...">
                 </div>
-                <button class="btn-primary" onclick="openProductModal()">+ Продукт</button>
+                <button class="btn-primary" id="add-product-btn" onclick="openProductModal()">+ Продукт</button>
             </div>
 
             <div class="filters-section">
@@ -76,7 +76,7 @@
                 <div class="search-bar">
                     <input type="text" id="dish-search" placeholder="🔍 Поиск блюда...">
                 </div>
-                <button class="btn-primary" onclick="openDishModal()">+ Блюдо</button>
+                <button class="btn-primary" id="add-dish-btn" onclick="openDishModal()">+ Блюдо</button>
             </div>
 
             <div class="filters-section">
@@ -125,7 +125,7 @@
             </div>
             <form id="product-form" class="modal-form">
                 <input type="hidden" id="product-id">
-                
+
                 <div class="form-group">
                     <label for="product-name">Название *</label>
                     <input type="text" id="product-name" required minlength="2">
@@ -216,8 +216,9 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeProductModal()">Отмена</button>
-                    <button type="submit" class="btn-primary">Сохранить</button>
+                    <button type="button" id="product-close-btn" class="btn-secondary" onclick="closeProductModal()">Отмена</button>
+                    <button type="button" id="product-delete-btn" class="btn-danger" style="display:none;" onclick="deleteProductFromModal()">Удалить</button>
+                    <button type="submit" id="product-save-btn" class="btn-primary">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -232,7 +233,7 @@
             </div>
             <div id="product-detail-content" class="modal-body"></div>
             <div class="modal-actions">
-                <button type="button" class="btn-danger" id="product-delete-btn" onclick="deleteCurrentProduct()">Удалить</button>
+                <button type="button" class="btn-danger" id="product-detail-delete-btn" onclick="deleteCurrentProduct()">Удалить</button>
                 <button type="button" class="btn-primary" onclick="editCurrentProduct()">Редактировать</button>
             </div>
         </div>
@@ -247,10 +248,10 @@
             </div>
             <form id="dish-form" class="modal-form">
                 <input type="hidden" id="dish-id">
-                
+
                 <div class="form-group">
                     <label for="dish-name">Название *</label>
-                    <input type="text" id="dish-name" required minlength="2" placeholder="Добавьте !десерт, !первое, !второе, !напиток, !салат, !суп, !перекус для авто-категории">
+                    <input type="text" id="dish-name" required minlength="2" placeholder="Добавьте !десерт, !первое и т.д. для авто-категории">
                     <small class="form-hint">Макросы будут удалены из названия, категория установится автоматически</small>
                 </div>
 
@@ -290,7 +291,7 @@
                 <div class="form-group">
                     <label>Состав блюда *</label>
                     <div id="dish-ingredients-container" class="ingredients-list"></div>
-                    <button type="button" class="btn-secondary" onclick="openIngredientModal()">+ Добавить продукт</button>
+                    <button type="button" id="add-ingredient-btn" class="btn-secondary" onclick="openIngredientModal()">+ Добавить продукт</button>
                 </div>
 
                 <div class="nutrition-card">
@@ -339,8 +340,9 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeDishModal()">Отмена</button>
-                    <button type="submit" class="btn-primary">Сохранить</button>
+                    <button type="button" id="dish-close-btn" class="btn-secondary" onclick="closeDishModal()">Отмена</button>
+                    <button type="button" id="dish-delete-btn" class="btn-danger" style="display:none;" onclick="deleteDishFromModal()">Удалить</button>
+                    <button type="submit" id="dish-save-btn" class="btn-primary">Сохранить</button>
                 </div>
             </form>
         </div>
@@ -362,8 +364,8 @@
                 <input type="number" id="ingredient-quantity" step="0.1" min="0.1" required>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="closeIngredientModal()">Отмена</button>
-                <button type="button" class="btn-primary" onclick="addIngredientToDish()">Добавить</button>
+                <button type="button" id="ingredient-cancel-btn" class="btn-secondary" onclick="closeIngredientModal()">Отмена</button>
+                <button type="button" id="ingredient-add-btn" class="btn-primary" onclick="addIngredientToDish()">Добавить</button>
             </div>
         </div>
     </div>
